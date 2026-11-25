@@ -1,0 +1,1054 @@
+<title>선박왕</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a nautical chart on top (phone) or left (desktop), an operations ledger below/right. */
+:root {
+  --bg: #e9eff2; --panel: #ffffff; --panel-2: #f3f6f8; --ink: #14202e; --muted: #5b6977; --line: #d2dbe1;
+  --sea: #cde0eb; --land: #eee6cc; --land-edge: #b8a982; --river: #4f8cc2; --lane: #7c9bb1;
+  --brand: #0b4f8a; --brand-ink: #ffffff; --accent: #e3a008; --mine: #e2580f;
+  --pos: #1d7a4b; --neg: #c0262d; --chip: #e4ecf1;
+  --f-display: 'Black Han Sans', 'IBM Plex Sans KR', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans KR', system-ui, -apple-system, sans-serif;
+  --f-num: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #091119; --panel: #101b26; --panel-2: #0d1720; --ink: #dce6ee; --muted: #8b9cab; --line: #213140;
+  --sea: #0c2131; --land: #1b2520; --land-edge: #34453b; --river: #3f80b8; --lane: #3a566a;
+  --brand: #5aa6ea; --brand-ink: #071019; --accent: #f2b705; --mine: #ff7a33;
+  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #091119; --panel: #101b26; --panel-2: #0d1720; --ink: #dce6ee; --muted: #8b9cab; --line: #213140;
+  --sea: #0c2131; --land: #1b2520; --land-edge: #34453b; --river: #3f80b8; --lane: #3a566a;
+  --brand: #5aa6ea; --brand-ink: #071019; --accent: #f2b705; --mine: #ff7a33;
+  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pos { color: var(--pos); } .neg { color: var(--neg); } .muted { color: var(--muted); }
+
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.top-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.logo { font-family: var(--f-display); font-size: 22px; letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px; }
+.flags { display: inline-grid; grid-template-columns: 8px 8px; grid-template-rows: 8px 8px; }
+.flags i:nth-child(1) { background: var(--accent); } .flags i:nth-child(2) { background: var(--brand); }
+.flags i:nth-child(3) { background: var(--brand); } .flags i:nth-child(4) { background: var(--accent); }
+.co { font-size: 12px; color: var(--muted); }
+.date { margin-left: auto; font-family: var(--f-num); font-weight: 600; }
+.ctl { display: flex; gap: 6px; }
+.ctl button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; min-width: 40px; font-weight: 600; }
+.ctl button.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+#sEra { font-family: var(--f-body); font-size: 14px; }
+.stats { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.9fr); gap: 8px; margin-top: 8px; }
+.stat { min-width: 0; }
+.stat small { display: block; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.stat b { display: block; font-family: var(--f-num); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.mapbox { position: relative; height: 44vh; min-height: 260px; max-height: 520px; background: var(--sea); border-bottom: 1px solid var(--line); }
+#map { width: 100%; height: 100%; display: block; touch-action: manipulation; }
+.mapctl { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 10px; display: flex; gap: 4px; }
+.mapctl button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+.mapctl button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.legend { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; display: flex; gap: 10px; font-size: 11px; color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 3px 8px; border-radius: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--river); vertical-align: middle; margin-right: 4px; }
+.legend span.c::before { border-top: 1.5px dashed var(--lane); }
+.legend span.s::before { width: 10px; height: 6px; border: 0; background: var(--mine); clip-path: polygon(0 0, 70% 0, 100% 50%, 70% 100%, 0 100%); }
+
+.side { min-width: 0; }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--panel); border-bottom: 1px solid var(--line);
+  padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+.tabs button { border: 0; background: none; padding: 11px 4px 9px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; position: relative; }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .dot { position: absolute; top: 7px; margin-left: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--mine); }
+#panel { padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+
+@media (min-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1.2fr) minmax(380px, 1fr); }
+  .mapbox { position: sticky; top: 108px; height: calc(100vh - 108px); max-height: none; border-bottom: 0; border-right: 1px solid var(--line); }
+  .tabs { position: sticky; top: 108px; z-index: 4; }
+}
+
+h2 { font-size: 18px; margin: 0; text-wrap: balance; }
+h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); letter-spacing: 0.05em; font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+.hint { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.hint ol { margin: 4px 0 0; padding-left: 18px; }
+
+.list { display: grid; gap: 8px; }
+.shipcard { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; text-align: left;
+  border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.shipcard:hover { border-color: var(--brand); }
+.shipcard .nm { font-weight: 700; }
+.shipcard small { color: var(--muted); font-size: 12px; display: block; }
+.shipcard .st { font-size: 12px; text-align: right; }
+.shipcard .bar { grid-column: 2 / 4; }
+.glyph { width: 12px; height: 12px; border-radius: 3px; background: var(--mine); }
+.glyph.fish { background: var(--brand); } .glyph.tour { background: var(--accent); } .glyph.bunker { background: var(--ink); }
+.bar { height: 4px; background: var(--chip); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--brand); }
+
+.dhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.back { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 10px; font-size: 13px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.kv div small { display: block; color: var(--muted); font-size: 11px; }
+.kv div b { font-family: var(--f-num); font-size: 14px; }
+.status { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--panel-2); }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tblwrap { overflow-x: auto; }
+.tbl th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl td.r, .tbl th.r { text-align: right; }
+.tbl tr:last-child td { border-bottom: 0; }
+.gname { font-weight: 600; white-space: nowrap; }
+.tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--chip); color: var(--muted); margin-left: 4px; white-space: nowrap; font-weight: 500; }
+.tag.p { background: color-mix(in srgb, var(--pos) 16%, var(--panel)); color: var(--pos); }
+.tag.d { background: color-mix(in srgb, var(--neg) 14%, var(--panel)); color: var(--neg); }
+.tag.a { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); color: var(--ink); }
+.best { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.acts { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 5px 9px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.btn.pri { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.btn.warn { border-color: var(--neg); color: var(--neg); background: var(--panel); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.wide { width: 100%; padding: 9px; font-size: 14px; }
+
+.dest { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; width: 100%; text-align: left;
+  border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 8px 10px; }
+.dest:hover { border-color: var(--brand); }
+.dest b { font-weight: 700; } .dest small { color: var(--muted); font-size: 12px; }
+.dest em { font-style: normal; font-family: var(--f-num); font-weight: 600; font-size: 13px; text-align: right; }
+.dests { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+
+.con { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--panel); }
+.con .l1 { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.con .route { font-weight: 700; }
+.con .pay { font-family: var(--f-num); font-weight: 600; color: var(--pos); }
+.con small { color: var(--muted); font-size: 12px; }
+
+.yard { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ycard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); display: grid; gap: 6px; }
+.ycard.locked { opacity: 0.55; }
+.ycard .t { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.ycard .t b { font-size: 15px; }
+.ycard dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 12px; }
+.ycard dt { color: var(--muted); } .ycard dd { margin: 0; font-family: var(--f-num); text-align: right; }
+
+.rank { display: grid; gap: 8px; }
+.rrow { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; }
+.rrow .pl { font-family: var(--f-display); font-size: 18px; color: var(--muted); }
+.rrow.me .pl, .rrow.me .nm { color: var(--mine); }
+.rrow .nm { font-weight: 700; }
+.rrow .bar { grid-column: 2 / 4; height: 6px; }
+.rrow.me .bar i { background: var(--mine); }
+.news { display: grid; gap: 4px; font-size: 12.5px; max-height: 260px; overflow-y: auto; }
+.news div { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+.news span { color: var(--muted); font-family: var(--f-num); font-size: 11.5px; }
+.prog { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; margin: 6px 0 4px; }
+.prog i { display: block; height: 100%; background: var(--accent); }
+.chart svg { width: 100%; height: auto; display: block; }
+.row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+select, input[type=text] { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); max-width: 100%; }
+label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+#toast div { background: var(--ink); color: var(--panel); padding: 9px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); animation: tin 0.2s ease-out; }
+@keyframes tin { from { transform: translateY(8px); opacity: 0; } }
+#modal { position: fixed; inset: 0; z-index: 40; background: rgb(5 12 20 / 0.55); display: grid; place-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
+#modal[hidden] { display: none; }
+.mbox { background: var(--panel); border-radius: 14px; padding: 20px; width: min(100%, 460px); max-height: 92vh; overflow-y: auto; display: grid; gap: 12px; border: 1px solid var(--line); }
+.mbox h1 { font-family: var(--f-display); font-size: 34px; margin: 0; font-weight: 400; letter-spacing: 0.01em; }
+.mbox p { margin: 0; color: var(--muted); }
+.starts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.starts button { text-align: left; border: 2px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 10px; display: grid; gap: 2px; }
+.starts button.on { border-color: var(--brand); }
+.starts button b { font-size: 15px; } .starts button small { color: var(--muted); font-size: 12px; }
+
+/* map */
+#map .land { fill: var(--land); stroke: var(--land-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+#map .river { stroke: var(--river); stroke-width: 2.2; fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+#map .lane { stroke: var(--lane); stroke-width: 1; fill: none; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; opacity: 0.8; }
+#map .lane.n { stroke-dasharray: 6 5; }
+#map .lane.off { opacity: 0.25; }
+#map .port { fill: var(--panel); stroke: var(--ink); stroke-width: 1.4; vector-effect: non-scaling-stroke; cursor: pointer; }
+#map .port.big { fill: var(--ink); }
+#map .port.sel { stroke: var(--accent); stroke-width: 3; }
+#map .lock { opacity: 0.3; }
+#map text { font-family: var(--f-body); fill: var(--ink); paint-order: stroke; stroke: var(--sea); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; font-weight: 600; }
+#map text.sea { fill: var(--muted); font-weight: 500; letter-spacing: 0.2em; stroke: none; }
+#map .badge { fill: var(--mine); }
+#map text.bt { fill: #fff; stroke: none; font-family: var(--f-num); font-weight: 600; }
+#map .ship { fill: var(--mine); stroke: var(--panel); stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
+#map .ship.sel { stroke: var(--accent); stroke-width: 2.5; }
+#map .route { stroke: var(--accent); stroke-width: 2.5; fill: none; vector-effect: non-scaling-stroke; stroke-dasharray: 6 4; }
+#map .hit { fill: transparent; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { #toast div { animation: none; } }
+</style>
+
+<header class="top">
+  <div class="top-row">
+    <div class="logo"><span class="flags" aria-hidden="true"><i></i><i></i><i></i><i></i></span>선박왕</div>
+    <div class="co" id="coName"></div>
+    <div class="date" id="date">1955.01.01</div>
+    <div class="ctl">
+      <button id="bPlay" data-act="play" aria-label="재생/일시정지">▶</button>
+      <button id="bSpeed" data-act="speed" aria-label="속도">1×</button>
+      <button data-act="step" aria-label="하루 진행">+1일</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><small>현금</small><b id="sCash">-</b></div>
+    <div class="stat"><small>순자산</small><b id="sNet">-</b></div>
+    <div class="stat"><small>운임지수</small><b id="sIdx">-</b></div>
+    <div class="stat"><small>시대</small><b id="sEra">-</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="mapbox">
+    <svg id="map" role="img" aria-label="항구와 항로 지도"></svg>
+    <div class="mapctl"><button data-act="view" data-v="kr" id="vKr">국내</button><button data-act="view" data-v="nea" id="vNea">동북아</button></div>
+    <div class="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
+  </div>
+  <div class="side">
+    <nav class="tabs" id="tabs">
+      <button data-act="tab" data-t="fleet">선단</button>
+      <button data-act="tab" data-t="port">항구</button>
+      <button data-act="tab" data-t="cons">계약</button>
+      <button data-act="tab" data-t="yard">조선소</button>
+      <button data-act="tab" data-t="rank">순위</button>
+    </nav>
+    <main id="panel"></main>
+  </div>
+</div>
+<div id="toast" aria-live="polite"></div>
+<div id="modal" hidden></div>
+
+<script>
+'use strict';
+/* ================= DATA ================= */
+const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v1';
+const ERA = [null,
+  { name: '강의 시대', need: 0, scale: 1 },
+  { name: '연안의 시대', need: 40000, scale: 4 },
+  { name: '근해의 시대', need: 400000, scale: 10 },
+];
+const GOODS = {
+  rice: { name: '쌀', base: 60, cls: 'bulk', era: 1 },
+  salt: { name: '소금', base: 25, cls: 'bulk', era: 1 },
+  wood: { name: '목재', base: 20, cls: 'bulk', era: 1 },
+  fish: { name: '생선', base: 70, cls: 'general', era: 1 },
+  goods: { name: '잡화', base: 150, cls: 'general', era: 1 },
+  cement: { name: '시멘트', base: 90, cls: 'bulk', era: 2 },
+  coal: { name: '석탄', base: 50, cls: 'bulk', era: 2 },
+  fuel: { name: '연료유', base: 120, cls: 'liquid', era: 2 },
+  ore: { name: '철광석', base: 80, cls: 'bulk', era: 3 },
+};
+const SHIPS = {
+  raft:    { name: '원목선', short: '원목', role: 'cargo', cap: 10, speed: 30, price: 1000, upkeep: 5, range: 0, river: true, era: 1, build: 3, cls: ['bulk', 'general'] },
+  hwangpo: { name: '황포돛배', short: '황포', role: 'cargo', cap: 25, speed: 50, price: 3000, upkeep: 12, range: 1, river: true, era: 1, build: 10, cls: ['bulk', 'general'] },
+  fishing: { name: '소형 어선', short: '어선', role: 'fish', cap: 8, speed: 60, price: 4000, upkeep: 15, range: 1, river: false, era: 1, build: 10, only: ['fish'] },
+  leisure: { name: '낚시선', short: '낚시', role: 'tour', cap: 0, speed: 60, price: 6000, upkeep: 20, range: 1, river: false, era: 2, build: 12 },
+  coaster: { name: '연안 운반선', short: '연안', role: 'cargo', cap: 80, speed: 150, price: 25000, upkeep: 60, range: 1, river: false, era: 2, build: 30, cls: ['bulk', 'general', 'liquid'] },
+  bunker:  { name: '급유선', short: '급유', role: 'bunker', cap: 0, speed: 150, price: 30000, upkeep: 70, range: 1, river: false, era: 2, build: 30 },
+  bulk:    { name: '소형 벌크선', short: '벌크', role: 'cargo', cap: 600, speed: 350, price: 180000, upkeep: 400, range: 2, river: false, era: 3, build: 60, cls: ['bulk'] },
+  feeder:  { name: '피더 컨테이너선', short: '피더', role: 'cargo', cap: 1000, speed: 450, price: 400000, upkeep: 800, range: 2, river: false, era: 3, build: 90, cls: ['general'] },
+  tanker:  { name: '연안 탱커', short: '탱커', role: 'cargo', cap: 1500, speed: 350, price: 600000, upkeep: 1100, range: 2, river: false, era: 3, build: 90, cls: ['liquid'] },
+};
+const LATER = [
+  { name: '케이프사이즈 벌크', cap: '150,000t', era: '4시대' }, { name: '대형 컨테이너선', cap: '80,000t', era: '4시대' },
+  { name: 'VLCC', cap: '300,000t', era: '4시대' }, { name: 'LNG선', cap: '170,000㎥', era: '5시대' },
+];
+const ROLE = { cargo: '운송', fish: '조업', tour: '관광', bunker: '급유' };
+const RANGE = ['하천', '연안', '근해'];
+const PORTS = {
+  chungju:    { name: '충주', sub: '목계나루', lat: 37.00, lon: 127.80, size: 1, era: 1, prod: ['wood'], dem: ['salt', 'fish', 'goods'], lab: 'r' },
+  yeoju:      { name: '여주', lat: 37.30, lon: 127.63, size: 1, era: 1, prod: ['rice', 'wood'], dem: ['salt', 'fish'], lab: 'r' },
+  mapo:       { name: '마포', sub: '서울', lat: 37.54, lon: 126.94, size: 3, era: 1, prod: ['goods'], dem: ['rice', 'wood', 'fish', 'salt', 'cement', 'coal'], lab: 't' },
+  incheon:    { name: '인천', lat: 37.46, lon: 126.62, size: 3, era: 1, prod: ['salt', 'goods'], dem: ['rice', 'wood', 'coal', 'fuel'], fish: 1, tour: 1, traffic: 3, lab: 'l' },
+  ganggyeong: { name: '강경', lat: 36.16, lon: 127.01, size: 1, era: 1, prod: ['rice'], dem: ['salt', 'fish', 'goods'], lab: 'r' },
+  gunsan:     { name: '군산', lat: 35.99, lon: 126.71, size: 2, era: 1, prod: ['rice', 'salt'], dem: ['goods', 'coal', 'wood'], fish: 1, traffic: 1, lab: 'l' },
+  mokpo:      { name: '목포', lat: 34.79, lon: 126.38, size: 2, era: 1, prod: ['salt', 'rice'], dem: ['goods', 'wood', 'cement'], fish: 1, tour: 1, traffic: 1, lab: 'l' },
+  jeju:       { name: '제주', lat: 33.52, lon: 126.53, size: 2, era: 1, prod: ['fish'], dem: ['rice', 'goods', 'cement', 'fuel'], fish: 1, tour: 3, traffic: 1, lab: 'b' },
+  yeosu:      { name: '여수', lat: 34.74, lon: 127.74, size: 2, era: 1, prod: ['fish', 'fuel'], dem: ['rice', 'goods'], fish: 1, tour: 2, traffic: 2, lab: 'b' },
+  tongyeong:  { name: '통영', lat: 34.84, lon: 128.42, size: 2, era: 1, prod: ['fish'], dem: ['rice', 'wood', 'fuel'], fish: 1, tour: 2, traffic: 1, lab: 'b' },
+  busan:      { name: '부산', lat: 35.10, lon: 129.04, size: 4, era: 1, prod: ['goods'], dem: ['rice', 'wood', 'coal', 'cement', 'fish'], fish: 1, tour: 3, traffic: 3, lab: 'r' },
+  gupo:       { name: '구포', lat: 35.21, lon: 128.99, size: 1, era: 1, prod: ['rice'], dem: ['salt', 'goods'], lab: 'l' },
+  samnangjin: { name: '삼랑진', lat: 35.40, lon: 128.84, size: 1, era: 1, prod: ['rice'], dem: ['salt', 'fish'], lab: 'l' },
+  daegu:      { name: '대구', sub: '화원나루', lat: 35.80, lon: 128.48, size: 2, era: 1, prod: ['goods'], dem: ['fish', 'salt', 'rice', 'coal'], lab: 'l' },
+  andong:     { name: '안동', lat: 36.56, lon: 128.73, size: 1, era: 1, prod: ['wood'], dem: ['salt', 'fish', 'goods'], lab: 'r' },
+  ulsan:      { name: '울산', lat: 35.50, lon: 129.38, size: 2, era: 2, prod: ['fuel'], dem: ['coal', 'cement', 'goods'], fish: 1, traffic: 2, lab: 'r' },
+  pohang:     { name: '포항', lat: 36.03, lon: 129.37, size: 2, era: 2, prod: ['fish'], dem: ['ore', 'coal', 'rice'], fish: 1, tour: 1, traffic: 2, lab: 'r' },
+  donghae:    { name: '동해', sub: '삼척', lat: 37.49, lon: 129.12, size: 2, era: 2, prod: ['cement', 'coal'], dem: ['rice', 'goods'], fish: 1, traffic: 1, lab: 'r' },
+  fukuoka:    { name: '후쿠오카', lat: 33.60, lon: 130.40, size: 3, era: 3, prod: ['goods'], dem: ['fish', 'cement', 'rice'], traffic: 2, lab: 'b' },
+  osaka:      { name: '오사카', lat: 34.65, lon: 135.43, size: 4, era: 3, prod: ['goods'], dem: ['fish', 'coal', 'ore'], traffic: 3, lab: 't' },
+  shanghai:   { name: '상하이', lat: 31.30, lon: 121.60, size: 4, era: 3, prod: ['goods', 'rice'], dem: ['coal', 'fuel', 'cement'], traffic: 3, lab: 'r' },
+  qingdao:    { name: '칭다오', lat: 36.07, lon: 120.32, size: 3, era: 3, prod: ['coal', 'salt'], dem: ['goods', 'fuel'], traffic: 2, lab: 'r' },
+  dalian:     { name: '다롄', lat: 38.92, lon: 121.65, size: 3, era: 3, prod: ['ore', 'coal'], dem: ['goods', 'rice'], traffic: 2, lab: 'r' },
+};
+const WPS = {
+  h1: [37.56, 127.22], h2: [37.66, 126.68], n1: [36.15, 128.45], n2: [35.58, 128.62],
+  w_inc: [37.30, 126.30], w_taean: [36.75, 125.95], w_gun: [35.95, 126.35], w_mok: [34.78, 126.05],
+  w_sw: [34.20, 125.95], w_s1: [34.30, 127.20], w_yeo: [34.55, 127.85], w_s2: [34.62, 128.55],
+  w_bus: [34.98, 129.15], w_e1: [35.45, 129.55], w_e2: [36.05, 129.60], w_e3: [37.30, 129.45],
+  w_tsu: [34.30, 129.70], w_kan: [33.97, 130.95], w_seto: [34.30, 133.20],
+  w_ys: [35.80, 123.50], w_bh: [38.30, 122.40], w_ecs: [32.40, 124.50],
+};
+const EDGES = [
+  ['chungju', 'yeoju', 'r'], ['yeoju', 'h1', 'r'], ['h1', 'mapo', 'r'], ['mapo', 'h2', 'r'], ['h2', 'incheon', 'r'],
+  ['ganggyeong', 'gunsan', 'r'],
+  ['andong', 'n1', 'r'], ['n1', 'daegu', 'r'], ['daegu', 'n2', 'r'], ['n2', 'samnangjin', 'r'], ['samnangjin', 'gupo', 'r'], ['gupo', 'busan', 'r'],
+  ['incheon', 'w_inc', 'c'], ['w_inc', 'w_taean', 'c'], ['w_taean', 'w_gun', 'c'], ['w_gun', 'gunsan', 'c'], ['w_gun', 'w_mok', 'c'], ['w_mok', 'mokpo', 'c'], ['w_mok', 'w_sw', 'c'],
+  ['w_sw', 'w_s1', 'c'], ['w_sw', 'jeju', 'c'], ['jeju', 'w_s1', 'c'], ['w_s1', 'w_yeo', 'c'], ['w_yeo', 'yeosu', 'c'], ['w_yeo', 'w_s2', 'c'], ['w_s2', 'tongyeong', 'c'], ['w_s2', 'w_bus', 'c'], ['w_bus', 'busan', 'c'],
+  ['w_bus', 'w_e1', 'c'], ['w_e1', 'ulsan', 'c'], ['w_e1', 'w_e2', 'c'], ['w_e2', 'pohang', 'c'], ['w_e2', 'w_e3', 'c'], ['w_e3', 'donghae', 'c'],
+  ['w_bus', 'w_tsu', 'n'], ['w_tsu', 'fukuoka', 'n'], ['fukuoka', 'w_kan', 'n'], ['w_kan', 'w_seto', 'n'], ['w_seto', 'osaka', 'n'],
+  ['w_taean', 'w_ys', 'n'], ['w_ys', 'qingdao', 'n'], ['w_ys', 'w_bh', 'n'], ['w_bh', 'dalian', 'n'], ['w_ys', 'w_ecs', 'n'], ['w_sw', 'w_ecs', 'n'], ['jeju', 'w_ecs', 'n'], ['w_ecs', 'shanghai', 'n'],
+];
+const LAND = [
+  [[39.8,124.3],[39.55,125.1],[38.75,125.15],[38.1,124.75],[37.75,126.15],[37.45,126.65],[37.05,126.8],[36.9,126.2],[36.45,126.5],[36.0,126.65],[35.6,126.5],[35.1,126.3],[34.75,126.35],[34.35,126.5],[34.5,127.3],[34.7,127.75],[34.85,128.3],[35.05,128.7],[35.08,129.05],[35.35,129.35],[35.8,129.45],[36.1,129.45],[36.8,129.45],[37.4,129.2],[38.0,128.7],[38.6,128.35],[39.2,127.5],[39.9,127.8],[40.3,128.6],[41.0,129.7],[42.0,130.4],[42.6,130.7],[42.9,132.5],[46,135],[46,110],[28,110],[28.0,121.2],[29.0,121.8],[30.0,122.3],[30.8,121.9],[31.4,121.8],[32.0,121.8],[33.0,120.9],[34.5,120.2],[35.5,119.6],[36.1,120.5],[36.7,121.3],[36.9,122.4],[37.4,122.6],[37.55,121.5],[37.7,120.5],[37.1,119.5],[37.6,118.9],[38.3,117.8],[39.0,118.0],[40.0,119.8],[40.5,121.0],[40.8,122.2],[40.0,121.9],[39.3,121.4],[38.75,121.15],[39.1,122.0],[39.7,123.0]],
+  [[33.95,130.95],[33.62,130.35],[33.45,129.95],[33.2,129.6],[32.7,129.75],[32.5,130.2],[31.4,130.2],[31.0,130.7],[31.4,131.3],[32.5,131.7],[33.5,131.7],[33.85,131.1]],
+  [[34.05,131.1],[34.25,131.8],[34.38,132.5],[34.48,133.3],[34.62,134.2],[34.70,135.1],[34.70,135.4],[34.3,135.15],[33.45,135.75],[33.7,136.5],[34.6,138],[36,141],[38,141],[38,139.5],[37.0,136.8],[36.2,136.1],[35.7,135.5],[35.55,134.5],[35.5,133.0],[34.8,131.9],[34.4,131.4]],
+  [[34.15,132.9],[34.30,134.0],[34.25,134.6],[33.6,134.75],[33.25,134.2],[32.75,133.0],[33.0,132.4],[33.6,132.4]],
+];
+const ISLES = [[33.38, 126.55, 0.38, 0.17], [34.45, 129.32, 0.11, 0.3]];
+const RIVALS = [
+  { name: '한강상선', home: '마포', w: 4000, k: 0.92, sens: 0.3, noise: 0.006 },
+  { name: '동남해운', home: '부산', w: 5000, k: 1.0, sens: 1.2, noise: 0.008 },
+  { name: '서해물산', home: '인천', w: 3500, k: 0.97, sens: 0.5, noise: 0.016 },
+];
+
+/* ================= HELPERS ================= */
+const $ = s => document.querySelector(s);
+const won = n => (n < 0 ? '-' : '') + '₩' + Math.round(Math.abs(n)).toLocaleString('ko-KR');
+const sgn = n => (n >= 0 ? '+' : '-') + '₩' + Math.round(Math.abs(n)).toLocaleString('ko-KR');
+const nf = n => Math.round(n).toLocaleString('ko-KR');
+function wonK(n) {
+  const a = Math.abs(n), s = n < 0 ? '-₩' : '₩';
+  if (a >= 1e8) return s + (a / 1e8).toFixed(2) + '억';
+  if (a >= 1e6) return s + Math.round(a / 1e4).toLocaleString('ko-KR') + '만';
+  if (a >= 1e5) return s + (a / 1e4).toFixed(1) + '만';
+  return won(n);
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const rint = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const proj = (lat, lon) => [(lon - 119.5) * 80.9, (40.5 - lat) * 100];
+function hav(a, b) {
+  const R = 6371, t = Math.PI / 180, dLa = (b.lat - a.lat) * t, dLo = (b.lon - a.lon) * t;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * t) * Math.cos(b.lat * t) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function dateOf(d) { return new Date(Date.UTC(START_YEAR, 0, 1) + d * 864e5); }
+function dateStr(d) { const t = dateOf(d); return `${t.getUTCFullYear()}.${String(t.getUTCMonth() + 1).padStart(2, '0')}.${String(t.getUTCDate()).padStart(2, '0')}`; }
+
+const NODES = {};
+for (const [id, p] of Object.entries(PORTS)) { const [x, y] = proj(p.lat, p.lon); NODES[id] = { lat: p.lat, lon: p.lon, x, y, port: true }; }
+for (const [id, [lat, lon]] of Object.entries(WPS)) { const [x, y] = proj(lat, lon); NODES[id] = { lat, lon, x, y }; }
+const ADJ = {};
+for (const [a, b, t] of EDGES) {
+  const d = hav(NODES[a], NODES[b]);
+  (ADJ[a] = ADJ[a] || []).push({ to: b, t, d });
+  (ADJ[b] = ADJ[b] || []).push({ to: a, t, d });
+}
+
+/* ================= STATE ================= */
+let S = null;
+const UI = { tab: 'fleet', ship: null, port: null, view: 'kr', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo' };
+const SPEEDS = [0.5, 1, 2, 4];
+
+const portOpen = id => PORTS[id].era <= S.era;
+const goodOpen = g => GOODS[g].era <= S.era;
+const T = sh => SHIPS[sh.type];
+function okEdge(t, c) { return t === 'r' ? c.river : t === 'c' ? c.range >= 1 : (c.range >= 2 && S.era >= 3); }
+function routes(from, c) {
+  const dist = { [from]: 0 }, prev = {}, done = new Set();
+  for (;;) {
+    let u = null, best = Infinity;
+    for (const k in dist) if (!done.has(k) && dist[k] < best) { best = dist[k]; u = k; }
+    if (u === null) break;
+    done.add(u);
+    for (const e of ADJ[u] || []) {
+      if (!okEdge(e.t, c)) continue;
+      if (PORTS[e.to] && !portOpen(e.to)) continue;
+      const nd = best + e.d;
+      if (dist[e.to] === undefined || nd < dist[e.to]) { dist[e.to] = nd; prev[e.to] = u; }
+    }
+  }
+  return { dist, prev };
+}
+function pathOf(R, to) { const p = []; for (let n = to; n !== undefined; n = R.prev[n]) p.unshift(n); return p; }
+const days = (km, spd) => Math.max(1, Math.ceil(km / spd));
+
+function depth(pid) { return 60 * PORTS[pid].size * ERA[S.era].scale; }
+function season(pid, g) {
+  if (g !== 'rice') return 1;
+  const m = dateOf(S.day).getUTCMonth(), P = PORTS[pid];
+  if ((m === 9 || m === 10) && P.prod.includes(g)) return 0.85;
+  if (m >= 3 && m <= 5 && P.dem.includes(g)) return 1.15;
+  return 1;
+}
+function price(pid, g, s) {
+  const P = PORTS[pid], m = S.market[pid][g];
+  let mod = P.prod.includes(g) ? 0.6 : P.dem.includes(g) ? 1.45 : 1;
+  mod *= season(pid, g);
+  for (const e of S.events) if (e.port === pid && e.good === g) mod *= e.f;
+  const st = clamp(s === undefined ? m.s : s, -0.5, 2.5);
+  return GOODS[g].base * mod * m.tr * (1 + 0.4 * (1 - st));
+}
+const buyUnit = (pid, g) => price(pid, g) * 1.05;
+const sellUnit = (pid, g) => price(pid, g) * 0.95;
+function buyCost(pid, g, q) { const m = S.market[pid][g]; return q * price(pid, g, m.s - q / depth(pid) / 2) * 1.05; }
+function sellRev(pid, g, q) { const m = S.market[pid][g]; return q * price(pid, g, m.s + q / depth(pid) / 2) * 0.95; }
+
+function load(sh) { let u = 0; for (const g in sh.cargo) u += sh.cargo[g].q; for (const c of sh.cons) u += c.q; return u; }
+const freeCap = sh => T(sh).cap - load(sh);
+function canCarry(sh, g) { const t = T(sh); if (t.only) return t.only.includes(g); return !!t.cls && t.cls.includes(GOODS[g].cls); }
+function typeCarries(t, g) { if (t.only) return t.only.includes(g); return !!t.cls && t.cls.includes(GOODS[g].cls); }
+const priceMul = () => 0.85 + 0.15 * S.idx;
+const newPrice = t => t.price * priceMul();
+function shipValue(sh) { return T(sh).price * Math.max(0.1, 1 - sh.age / 365 / 35) * priceMul() * 0.9; }
+const usedPrice = L => SHIPS[L.type].price * Math.max(0.1, 1 - L.age / 35) * priceMul();
+const upkeep = sh => T(sh).upkeep * (1 + 0.03 * sh.age / 365);
+function cargoValue(sh) { let v = 0; for (const g in sh.cargo) { const c = sh.cargo[g]; v += c.q * (c.cost > 0 ? c.cost : GOODS[g].base * 0.6); } return v; }
+function netWorth() { let v = S.cash; for (const sh of S.ships) v += shipValue(sh) + cargoValue(sh); for (const o of S.orders) v += o.paid * 0.8; return v; }
+function rankList() {
+  const arr = [{ name: S.name, w: netWorth(), me: true }, ...S.rivals.map(r => ({ name: r.name, w: r.w }))];
+  return arr.sort((a, b) => b.w - a.w);
+}
+const myRank = () => rankList().findIndex(r => r.me) + 1;
+
+function news(t) { S.news.unshift({ d: S.day, t }); if (S.news.length > 60) S.news.length = 60; }
+function toast(t) {
+  const box = $('#toast'), el = document.createElement('div');
+  el.textContent = t; box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => el.remove(), 2800);
+}
+
+/* ================= GAME SETUP ================= */
+function newGame(name, home) {
+  S = {
+    v: 1, name: name || '한국해운', home, day: 0, cash: 1500, era: 1, idx: 1, shock: 0, phase: Math.random() * 6.28,
+    ships: [], seq: {}, sid: 1, market: {}, contracts: [], cid: 1, used: [], orders: [], events: [],
+    rivals: RIVALS.map(r => ({ ...r })), news: [], hist: [], won: false, over: false, autoPause: true, tip: true,
+  };
+  for (const p in PORTS) { S.market[p] = {}; for (const g in GOODS) S.market[p][g] = { s: rnd(0.85, 1.15), tr: rnd(0.95, 1.05) }; }
+  addShip('raft', home, 0);
+  refreshUsed();
+  for (let i = 0; i < 8; i++) genContract();
+  news(`${S.name} 창업. ${PORTS[home].name} 나루에서 원목선 한 척으로 시작합니다.`);
+  S.hist.push(histPoint());
+  UI.port = home; UI.ship = null; UI.tab = 'fleet'; UI.t = 0; UI.view = 'kr';
+}
+function addShip(type, loc, ageDays) {
+  const t = SHIPS[type]; S.seq[type] = (S.seq[type] || 0) + 1;
+  const sh = { id: S.sid++, type, name: `${t.short} ${S.seq[type]}호`, age: ageDays || 0, loc, voy: null, cargo: {}, cons: [], mode: 'idle', busy: 0 };
+  S.ships.push(sh); return sh;
+}
+function deliveryPort(t) { return t.river ? S.home : (S.home === 'mapo' ? 'incheon' : 'busan'); }
+function refreshUsed() {
+  const types = Object.keys(SHIPS).filter(k => SHIPS[k].era <= S.era);
+  S.used = [];
+  for (let i = 0; i < 4; i++) {
+    const type = pick(types), t = SHIPS[type];
+    const ports = Object.keys(PORTS).filter(p => portOpen(p) && (ADJ[p] || []).some(e => okEdge(e.t, t)));
+    if (!ports.length) continue;
+    S.used.push({ type, age: rint(3, 25), loc: pick(ports), id: Math.random().toString(36).slice(2, 8) });
+  }
+}
+function genContract() {
+  const open = Object.keys(PORTS).filter(portOpen);
+  for (let tries = 0; tries < 8; tries++) {
+    const from = pick(open.flatMap(p => Array(PORTS[p].size).fill(p)));
+    const P = PORTS[from];
+    const prods = P.prod.filter(goodOpen);
+    const g = prods.length && Math.random() < 0.75 ? pick(prods) : pick(Object.keys(GOODS).filter(goodOpen));
+    const dems = open.filter(p => p !== from && PORTS[p].dem.includes(g));
+    const to = dems.length && Math.random() < 0.8 ? pick(dems) : pick(open.filter(p => p !== from));
+    let bestCap = 0, km = 0, slow = Infinity;
+    for (const t of Object.values(SHIPS)) {
+      if (t.era > S.era || t.role !== 'cargo' || !typeCarries(t, g)) continue;
+      const R = routes(from, t);
+      if (R.dist[to] === undefined) continue;
+      if (t.cap > bestCap) { bestCap = t.cap; km = R.dist[to]; }
+      slow = Math.min(slow, t.speed);
+    }
+    if (!bestCap) continue;
+    const q = Math.max(3, Math.round(rnd(0.3, 1) * bestCap));
+    const pay = Math.round(q * (12 + 0.05 * km) * S.idx * rnd(0.85, 1.25) / 10) * 10;
+    S.contracts.push({ id: S.cid++, from, to, good: g, q, km: Math.round(km), pay, due: days(km, slow) + 6, offer: S.day + rint(8, 14) });
+    return;
+  }
+}
+
+/* ================= ACTIONS ================= */
+function maxBuy(sh, g) {
+  const pid = sh.loc; let hi = freeCap(sh);
+  if (hi <= 0) return 0;
+  if (buyCost(pid, g, hi) <= S.cash) return hi;
+  let lo = 0;
+  while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (buyCost(pid, g, mid) <= S.cash) lo = mid; else hi = mid - 1; }
+  return lo;
+}
+function doBuy(sh, g, q) {
+  if (q <= 0) return;
+  const cost = buyCost(sh.loc, g, q);
+  if (cost > S.cash) return;
+  S.cash -= cost; S.market[sh.loc][g].s -= q / depth(sh.loc);
+  const c = sh.cargo[g] || (sh.cargo[g] = { q: 0, cost: 0 });
+  c.cost = (c.cost * c.q + cost) / (c.q + q); c.q += q;
+  toast(`${GOODS[g].name} ${q}t 매수 ${won(cost)}`);
+}
+function doSell(sh, g) {
+  const c = sh.cargo[g]; if (!c || !c.q) return;
+  const rev = sellRev(sh.loc, g, c.q), gain = rev - c.cost * c.q;
+  S.cash += rev; S.market[sh.loc][g].s += c.q / depth(sh.loc);
+  toast(`${GOODS[g].name} ${c.q}t 매도 ${won(rev)} (차익 ${sgn(gain)})`);
+  delete sh.cargo[g];
+}
+function doSail(sh, to) {
+  const t = T(sh), R = routes(sh.loc, t);
+  if (R.dist[to] === undefined) return;
+  const d = days(R.dist[to], t.speed);
+  sh.voy = { from: sh.loc, to, path: pathOf(R, to), dep: S.day, arr: S.day + d };
+  sh.loc = null; sh.mode = 'idle'; UI.confirm = null;
+  toast(`${sh.name} 출항 → ${PORTS[to].name} (${d}일)`);
+  if (!UI.playing) setPlaying(true);
+}
+function doFish(sh) {
+  sh.mode = 'fishing'; sh.busy = S.day + 3;
+  toast(`${sh.name} 조업 출항 (3일)`);
+  if (!UI.playing) setPlaying(true);
+}
+function doAccept(cid, sh) {
+  const i = S.contracts.findIndex(c => c.id === cid); if (i < 0) return;
+  const c = S.contracts[i];
+  if (sh.loc !== c.from || freeCap(sh) < c.q || !canCarry(sh, c.good)) return;
+  S.contracts.splice(i, 1);
+  sh.cons.push({ ...c, deadline: S.day + c.due });
+  toast(`계약 수락: ${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}`);
+}
+function doOrder(type) {
+  const t = SHIPS[type], cost = newPrice(t);
+  if (S.cash < cost) return;
+  S.cash -= cost;
+  S.orders.push({ type, ready: S.day + t.build, port: deliveryPort(t), paid: cost });
+  toast(`${t.name} 발주 완료. ${t.build}일 뒤 ${PORTS[deliveryPort(t)].name}에서 인도`);
+}
+function doBuyUsed(id) {
+  const i = S.used.findIndex(u => u.id === id); if (i < 0) return;
+  const L = S.used[i], cost = usedPrice(L);
+  if (S.cash < cost) return;
+  S.cash -= cost; S.used.splice(i, 1);
+  const sh = addShip(L.type, L.loc, L.age * 365);
+  toast(`${sh.name} 매입 (${L.age}년 된 중고선, ${PORTS[L.loc].name})`);
+}
+function doSellShip(sh) {
+  const v = shipValue(sh);
+  S.cash += v; S.ships = S.ships.filter(x => x !== sh);
+  toast(`${sh.name} 매각 ${won(v)}`); UI.ship = null; UI.confirm = null;
+}
+
+/* ================= DAILY TICK ================= */
+function histPoint() { return { d: S.day, me: netWorth(), r: S.rivals.map(r => r.w) }; }
+function tick() {
+  S.day++;
+  const month = dateOf(S.day).getUTCMonth();
+  S.shock = S.shock * 0.97 + gauss() * 0.025;
+  S.idx = clamp(1 + 0.3 * Math.sin(2 * Math.PI * S.day / 720 + S.phase) + S.shock, 0.55, 1.6);
+  for (const p in S.market) for (const g in S.market[p]) {
+    const m = S.market[p][g];
+    m.s += (1 - m.s) * 0.08;
+    m.tr = clamp(1 + (m.tr - 1) * 0.95 + gauss() * 0.012, 0.8, 1.2);
+  }
+  S.events = S.events.filter(e => e.until > S.day);
+  if (Math.random() < 0.025) {
+    const p = pick(Object.keys(PORTS).filter(portOpen)), g = pick(Object.keys(GOODS).filter(goodOpen));
+    const up = Math.random() < 0.5, f = up ? rnd(1.5, 1.9) : rnd(0.45, 0.65);
+    S.events.push({ port: p, good: g, f, until: S.day + rint(12, 25) });
+    const lab = up ? '수요 급증' : (g === 'rice' ? '풍년으로 값 폭락' : '공급 과잉');
+    news(`${PORTS[p].name} ${GOODS[g].name} ${lab}`);
+  }
+  if (month >= 6 && month <= 8 && Math.random() < 0.04) {
+    let n = 0;
+    for (const sh of S.ships) {
+      if (!sh.voy) continue;
+      const p = sh.voy.path, atSea = p.some((id, i) => i > 0 && ADJ[p[i - 1]].find(e => e.to === id).t !== 'r');
+      if (atSea) { sh.voy.arr += rint(1, 3); n++; }
+    }
+    news(`태풍 상륙${n ? ` — 항해 중인 배 ${n}척 지연` : ''}`);
+    if (n) toast(`태풍! 항해 중인 배 ${n}척이 지연됩니다`);
+  }
+  // ships
+  const tourCount = {}, bunkCount = {};
+  for (const sh of S.ships) if (sh.loc && sh.mode === 'tour') tourCount[sh.loc] = (tourCount[sh.loc] || 0) + 1;
+  for (const sh of S.ships) if (sh.loc && sh.mode === 'bunker') bunkCount[sh.loc] = (bunkCount[sh.loc] || 0) + 1;
+  let arrived = false;
+  for (const sh of S.ships) {
+    sh.age++;
+    S.cash -= upkeep(sh);
+    if (sh.loc && sh.mode === 'tour') S.cash += (PORTS[sh.loc].tour || 0) * 60 * (0.7 + 0.3 * S.idx) / tourCount[sh.loc];
+    if (sh.loc && sh.mode === 'bunker') S.cash += (PORTS[sh.loc].traffic || 0) * 260 * S.idx / bunkCount[sh.loc];
+    if (sh.mode === 'fishing' && S.day >= sh.busy) {
+      const q = Math.min(freeCap(sh), rint(4, 8));
+      if (q > 0) { const c = sh.cargo.fish || (sh.cargo.fish = { q: 0, cost: 0 }); c.cost = c.cost * c.q / (c.q + q); c.q += q; }
+      sh.mode = 'idle';
+      news(`${sh.name} 조업 귀항 — 생선 ${q}t`); toast(`${sh.name} 귀항: 생선 ${q}t`);
+      arrived = true;
+    }
+    if (sh.voy && S.day >= sh.voy.arr) {
+      sh.loc = sh.voy.to; sh.voy = null;
+      let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`;
+      const keep = [];
+      for (const c of sh.cons) {
+        if (c.to === sh.loc) {
+          const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay;
+          S.cash += pay; msg += ` · 계약 운임 ${won(pay)}${late ? ' (지연, 절반)' : ''}`;
+        } else keep.push(c);
+      }
+      sh.cons = keep;
+      news(msg); toast(msg); arrived = true;
+    }
+  }
+  if (S.cash < 0) S.cash *= 1.001;
+  // orders
+  for (const o of S.orders.filter(o => o.ready <= S.day)) {
+    const sh = addShip(o.type, o.port, 0);
+    news(`신조선 ${sh.name} 인도 (${PORTS[o.port].name})`); toast(`신조선 ${sh.name} 인도!`);
+  }
+  S.orders = S.orders.filter(o => o.ready > S.day);
+  // contracts
+  S.contracts = S.contracts.filter(c => {
+    if (c.offer < S.day) return false;
+    if (Math.random() < 0.035) {
+      const r = pick(S.rivals);
+      if (Math.random() < 0.35) news(`${r.name}이(가) ${PORTS[c.from].name}→${PORTS[c.to].name} ${GOODS[c.good].name} 계약을 가져갔습니다`);
+      return false;
+    }
+    return true;
+  });
+  const want = 10 + S.era * 3;
+  if (S.contracts.length < want && Math.random() < 0.7) genContract();
+  if (S.contracts.length < want / 2) genContract();
+  if (S.day % 30 === 0) refreshUsed();
+  // rivals
+  for (const r of S.rivals) {
+    const g = 0.03 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) + gauss() * r.noise;
+    r.w = Math.max(500, r.w * (1 + g));
+  }
+  // era, history, end states
+  const nw = netWorth();
+  if (S.era < 3 && nw >= ERA[S.era + 1].need) {
+    S.era++;
+    news(`${ERA[S.era].name} 개막`);
+    for (const p in PORTS) if (PORTS[p].era === S.era) news(`${PORTS[p].name} 항로 개설`);
+    refreshUsed();
+    setPlaying(false);
+    eraModal();
+  }
+  if (S.day % 5 === 0) { S.hist.push(histPoint()); if (S.hist.length > 500) S.hist.splice(0, S.hist.length - 500); }
+  if (!S.won && nw >= GOAL && myRank() === 1) { S.won = true; setPlaying(false); winModal(); }
+  if (nw < 0 && !S.over) { S.over = true; setPlaying(false); overModal(); }
+  if (arrived && S.autoPause) setPlaying(false);
+  if (S.day % 5 === 0) save();
+}
+
+/* ================= MAP ================= */
+const VIEWS = { kr: [490, 236, 362, 518], nea: [30, 80, 1300, 900] };
+function landPath(poly) { return 'M' + poly.map(([la, lo]) => proj(la, lo).map(v => v.toFixed(1)).join(',')).join('L') + 'Z'; }
+function drawMap() {
+  const svg = $('#map'), vb = VIEWS[UI.view];
+  svg.setAttribute('viewBox', vb.join(' '));
+  const r = svg.getBoundingClientRect();
+  UI.upp = r.width ? Math.max(vb[2] / r.width, vb[3] / r.height) : 1;
+  const u = UI.upp, fs = 11.5 * u;
+  let h = `<rect x="-200" y="-200" width="1800" height="1500" fill="var(--sea)"/>`;
+  for (const poly of LAND) h += `<path class="land" d="${landPath(poly)}"/>`;
+  for (const [la, lo, rx, ry] of ISLES) { const [x, y] = proj(la, lo); h += `<ellipse class="land" cx="${x}" cy="${y}" rx="${rx * 80.9}" ry="${ry * 100}"/>`; }
+  const seaLab = UI.view === 'kr' ? [['서 해', 36.3, 125.7], ['남 해', 34.05, 127.9], ['동 해', 37.0, 129.85]] : [['황 해', 35.2, 123.4], ['동 해', 38.5, 131.5], ['동중국해', 31.0, 124.6]];
+  for (const [t, la, lo] of seaLab) { const [x, y] = proj(la, lo); h += `<text class="sea" x="${x}" y="${y}" font-size="${11 * u}" text-anchor="middle">${t}</text>`; }
+  for (const [a, b, t] of EDGES) {
+    const A = NODES[a], B = NODES[b];
+    if (t === 'r') h += `<line class="river" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`;
+    else {
+      const off = (PORTS[a] && !portOpen(a)) || (PORTS[b] && !portOpen(b)) || (t === 'n' && S.era < 3);
+      h += `<line class="lane ${t}${off ? ' off' : ''}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>`;
+    }
+  }
+  h += `<g id="mRoute"></g>`;
+  for (const [id, p] of Object.entries(PORTS)) {
+    const n = NODES[id], lock = !portOpen(id), rr = (p.size >= 3 ? 4.2 : 3.4) * u;
+    h += `<g class="${lock ? 'lock' : ''}"><circle class="port${p.size >= 3 ? ' big' : ''}${UI.port === id ? ' sel' : ''}" cx="${n.x}" cy="${n.y}" r="${rr}"/>`;
+    if (!(UI.view === 'nea' && p.size < 2)) {
+      let x = n.x, y = n.y, an = 'start';
+      if (p.lab === 'r') { x += rr + 3 * u; y += fs / 3; }
+      else if (p.lab === 'l') { x -= rr + 3 * u; y += fs / 3; an = 'end'; }
+      else if (p.lab === 't') { y -= rr + 4 * u; an = 'middle'; }
+      else { y += rr + fs + 1 * u; an = 'middle'; }
+      h += `<text x="${x}" y="${y}" font-size="${fs}" text-anchor="${an}">${p.name}</text>`;
+    }
+    h += `<circle class="hit" data-act="port" data-p="${id}" cx="${n.x}" cy="${n.y}" r="${12 * u}"/></g>`;
+  }
+  h += `<g id="mBadges"></g><g id="mShips"></g>`;
+  svg.innerHTML = h;
+  drawBadges(); drawShips();
+}
+function drawBadges() {
+  const g = $('#mBadges'); if (!g) return;
+  const u = UI.upp, cnt = {};
+  for (const sh of S.ships) if (sh.loc && sh.mode !== 'fishing') cnt[sh.loc] = (cnt[sh.loc] || 0) + 1;
+  let h = '';
+  for (const [p, n] of Object.entries(cnt)) {
+    const N = NODES[p], x = N.x + 6 * u, y = N.y - 7 * u;
+    h += `<g data-act="port" data-p="${p}" style="cursor:pointer"><rect class="badge" x="${x - 1 * u}" y="${y - 6 * u}" width="${(n > 9 ? 16 : 11) * u}" height="${11 * u}" rx="${3 * u}"/><text class="bt" x="${x + (n > 9 ? 7 : 4.5) * u}" y="${y + 2.8 * u}" font-size="${8.5 * u}" text-anchor="middle">${n}</text></g>`;
+  }
+  g.innerHTML = h;
+  const sel = S.ships.find(s => s.id === UI.ship), rt = $('#mRoute');
+  if (rt) rt.innerHTML = sel && sel.voy ? `<polyline class="route" points="${sel.voy.path.map(id => NODES[id].x + ',' + NODES[id].y).join(' ')}"/>` : '';
+}
+function posOnPath(path, f) {
+  const pts = path.map(id => NODES[id]); let L = 0; const seg = [];
+  for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); seg.push(d); L += d; }
+  let rem = clamp(f, 0, 1) * L;
+  for (let i = 0; i < seg.length; i++) {
+    if (rem <= seg[i] || i === seg.length - 1) {
+      const a = pts[i], b = pts[i + 1], k = seg[i] ? clamp(rem / seg[i], 0, 1) : 0;
+      return [a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, Math.atan2(b.y - a.y, b.x - a.x)];
+    }
+    rem -= seg[i];
+  }
+  return [pts[0].x, pts[0].y, 0];
+}
+function drawShips() {
+  const g = $('#mShips'); if (!g || !S) return;
+  const u = UI.upp; let h = '';
+  for (const sh of S.ships) {
+    let x, y, a = 0;
+    if (sh.voy) {
+      const f = (UI.t - sh.voy.dep) / (sh.voy.arr - sh.voy.dep);
+      [x, y, a] = posOnPath(sh.voy.path, f);
+    } else if (sh.mode === 'fishing') {
+      const N = NODES[sh.loc]; x = N.x + 9 * u + Math.sin(UI.t * 6) * 1.5 * u; y = N.y + 8 * u; a = 0.3;
+    } else continue;
+    const s = 1.25 * u, sel = sh.id === UI.ship;
+    h += `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(a * 180 / Math.PI).toFixed(0)})" data-act="ship" data-id="${sh.id}"><circle class="hit" r="${10 * u}"/><path class="ship${sel ? ' sel' : ''}" d="M${-6 * s},${-3 * s}L${3 * s},${-3 * s}L${7 * s},0L${3 * s},${3 * s}L${-6 * s},${3 * s}Z"/></g>`;
+  }
+  g.innerHTML = h;
+}
+
+/* ================= PANELS ================= */
+function renderTop() {
+  $('#coName').textContent = S.name;
+  $('#date').textContent = dateStr(S.day);
+  const c = $('#sCash'); c.textContent = wonK(S.cash); c.className = S.cash < 0 ? 'neg' : '';
+  $('#sNet').textContent = wonK(netWorth());
+  $('#sIdx').innerHTML = `${S.idx.toFixed(2)} <span class="${S.idx >= 1 ? 'pos' : 'neg'}" style="font-size:11px">${S.idx >= 1.15 ? '호황' : S.idx <= 0.85 ? '불황' : '보통'}</span>`;
+  $('#sEra').textContent = ERA[S.era].name;
+  $('#bPlay').textContent = UI.playing ? '❚❚' : '▶';
+  $('#bPlay').classList.toggle('on', UI.playing);
+  $('#bSpeed').textContent = UI.speed + '×';
+  $('#vKr').classList.toggle('on', UI.view === 'kr');
+  $('#vNea').classList.toggle('on', UI.view === 'nea');
+  for (const b of document.querySelectorAll('#tabs button')) {
+    b.classList.toggle('on', b.dataset.t === UI.tab);
+    const dot = b.querySelector('.dot');
+    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role !== 'tour' && T(s).role !== 'bunker');
+    if (idle && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
+    if (!idle && dot) dot.remove();
+  }
+}
+function statusText(sh) {
+  if (sh.voy) { const left = Math.max(0, sh.voy.arr - S.day); return `항해 중 · ${PORTS[sh.voy.from].name} → ${PORTS[sh.voy.to].name} · ${left}일 남음`; }
+  if (sh.mode === 'fishing') return `조업 중 · ${PORTS[sh.loc].name} 앞바다 · ${Math.max(0, sh.busy - S.day)}일 남음`;
+  if (sh.mode === 'tour') return `관광 운영 · ${PORTS[sh.loc].name}`;
+  if (sh.mode === 'bunker') return `급유 영업 · ${PORTS[sh.loc].name}`;
+  return `정박 · ${PORTS[sh.loc].name}`;
+}
+function fleetList() {
+  let h = '';
+  if (S.tip && S.day < 60) h += `<div class="hint"><b>시작 가이드</b><ol><li>아래 배를 눌러 지금 항구에서 싼 화물을 삽니다. <span class="tag p">생산</span> 표시가 싼 곳입니다.</li><li>출항 목록에서 <b>예상 손익</b>이 큰 항구를 고릅니다.</li><li>도착하면 팔고, 돈이 모이면 <b>조선소</b>에서 배를 늘립니다.</li></ol></div>`;
+  h += `<div class="list">`;
+  for (const sh of S.ships) {
+    const t = T(sh), pct = t.cap ? Math.round(load(sh) / t.cap * 100) : 0;
+    h += `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년</small></div><div class="st">${statusText(sh)}</div>${t.cap ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</button>`;
+  }
+  h += `</div>`;
+  if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
+  return h;
+}
+function bestSale(sh, g, R) {
+  let best = null;
+  for (const p in R.dist) {
+    if (!PORTS[p] || p === sh.loc) continue;
+    const u = sellUnit(p, g);
+    if (!best || u > best.u) best = { p, u, d: days(R.dist[p], T(sh).speed) };
+  }
+  return best;
+}
+function shipDetail(sh) {
+  const t = T(sh), docked = !!sh.loc && !sh.voy;
+  let h = `<div class="dhead"><button class="back" data-act="back">← 선단</button><h2>${esc(sh.name)}</h2><span class="tag">${t.name}</span></div>`;
+  h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>유지비</small><b>${won(upkeep(sh))}/일</b></div><div><small>연식</small><b>${Math.floor(sh.age / 365)}년</b></div><div><small>항해 구역</small><b>${RANGE[t.range]}${t.river ? '·강' : ''}</b></div><div><small>매각가</small><b>${won(shipValue(sh))}</b></div></div>`;
+  h += `<div class="status">${statusText(sh)}</div>`;
+  const R = sh.loc ? routes(sh.loc, t) : null;
+  // cargo held
+  const held = Object.keys(sh.cargo);
+  if (!docked && (held.length || sh.cons.length)) {
+    h += `<div class="card"><h3>적재 화물</h3>${held.map(g => `<div class="row2"><b>${GOODS[g].name} ${sh.cargo[g].q}t</b><span class="muted">원가 ${won(sh.cargo[g].cost)}/t</span></div>`).join('')}${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t</b><span class="muted">계약 → ${PORTS[c.to].name} · ${won(c.pay)} · D${c.deadline - S.day >= 0 ? '-' + (c.deadline - S.day) : '+' + (S.day - c.deadline)}</span></div>`).join('')}</div>`;
+  }
+  if (docked && sh.mode !== 'fishing') {
+    const pid = sh.loc, P = PORTS[pid];
+    if (t.cap) {
+      const goods = Object.keys(GOODS).filter(g => goodOpen(g) && canCarry(sh, g));
+      h += `<div class="card"><h3>${P.name} 시장 · 남은 공간 ${freeCap(sh)}t · 현금 ${won(S.cash)}</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>화물</th><th class="r">살 때</th><th class="r">팔 때</th><th class="r">보유</th><th class="r"></th></tr></thead><tbody>`;
+      for (const g of goods) {
+        const c = sh.cargo[g], mb = maxBuy(sh, g), q4 = Math.min(mb, Math.max(1, Math.ceil(freeCap(sh) / 4)));
+        const tag = P.prod.includes(g) ? '<span class="tag p">생산</span>' : P.dem.includes(g) ? '<span class="tag d">수요</span>' : '';
+        const b = bestSale(sh, g, R);
+        const hint = b ? `<span class="best">최고 ${PORTS[b.p].name} ${won(b.u)} · ${b.d}일</span>` : '';
+        h += `<tr><td class="gname">${GOODS[g].name}${tag}${hint}</td><td class="r num">${won(buyUnit(pid, g))}</td><td class="r num">${won(sellUnit(pid, g))}</td><td class="r num">${c ? `${c.q}t<span class="best">@${won(c.cost)}</span>` : '-'}</td><td class="r"><div class="acts"><button class="btn" data-act="buy" data-id="${sh.id}" data-g="${g}" data-q="${q4}" ${q4 > 0 && mb > 0 ? '' : 'disabled'}>¼</button><button class="btn pri" data-act="buy" data-id="${sh.id}" data-g="${g}" data-q="${mb}" ${mb > 0 ? '' : 'disabled'}>최대</button><button class="btn" data-act="sell" data-id="${sh.id}" data-g="${g}" ${c ? '' : 'disabled'}>팔기</button></div></td></tr>`;
+      }
+      h += `</tbody></table></div></div>`;
+      if (sh.cons.length) h += `<div class="card"><h3>수행 중인 계약</h3><div class="list">${sh.cons.map(c => conRow(c, null, true)).join('')}</div></div>`;
+      const here = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good) && R.dist[c.to] !== undefined);
+      if (here.length) h += `<div class="card"><h3>이 항구의 운임 계약</h3><div class="list">${here.map(c => conRow(c, sh)).join('')}</div></div>`;
+    }
+    if (t.role === 'fish') h += `<div class="card"><h3>조업</h3>${P.fish ? `<button class="btn pri wide" data-act="fish" data-id="${sh.id}" ${freeCap(sh) > 0 ? '' : 'disabled'}>${P.name} 앞바다로 조업 나가기 · 3일 · 생선 4~8t</button>` : `<p class="muted" style="margin:0">${P.name}에는 어장이 없습니다. 어장 항구: 인천, 군산, 목포, 제주, 여수, 통영, 부산${S.era >= 2 ? ', 울산, 포항, 동해' : ''}</p>`}</div>`;
+    if (t.role === 'tour') {
+      const inc = (P.tour || 0) * 60 * (0.7 + 0.3 * S.idx);
+      h += `<div class="card"><h3>관광 운영</h3>${P.tour ? (sh.mode === 'tour' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">운영 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="tour">낚시 관광 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">관광객이 없는 항구입니다. 제주·부산(★3), 여수·통영(★2)이 좋습니다.</p>`}</div>`;
+    }
+    if (t.role === 'bunker') {
+      const inc = (P.traffic || 0) * 260 * S.idx;
+      h += `<div class="card"><h3>급유 영업</h3>${P.traffic ? (sh.mode === 'bunker' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">영업 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="bunker">급유 영업 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">선박 왕래가 적은 항구입니다. 부산·인천이 가장 바쁩니다.</p>`}</div>`;
+    }
+    // destinations
+    const dests = Object.keys(R.dist).filter(p => PORTS[p] && p !== pid).map(p => {
+      let est = 0, has = false;
+      for (const g in sh.cargo) { const c = sh.cargo[g]; est += sellRev(p, g, c.q) - c.cost * c.q; has = true; }
+      let con = 0; for (const c of sh.cons) if (c.to === p) con += c.pay;
+      return { p, d: days(R.dist[p], t.speed), km: R.dist[p], est, has, con };
+    }).sort((a, b) => (b.est + b.con) - (a.est + a.con) || a.d - b.d);
+    h += `<div class="card"><h3>출항 · 목적지 ${dests.length}곳</h3><div class="dests">${dests.map(x => `<button class="dest" data-act="sail" data-id="${sh.id}" data-to="${x.p}"><b>${PORTS[x.p].name}</b><em class="${x.est + x.con >= 0 ? 'pos' : 'neg'}">${x.has || x.con ? sgn(x.est + x.con) : ''}</em><small>${x.d}일 · ${nf(x.km)}km</small>${x.con ? '<small style="text-align:right"><span class="tag a">계약</span></small>' : ''}</button>`).join('')}</div></div>`;
+    const canSell = !held.length && !sh.cons.length;
+    h += `<div class="card"><h3>매각</h3>${canSell ? (UI.confirm === 'sell' + sh.id ? `<div class="row2"><span>정말 ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>` : `<button class="btn" data-act="askSell" data-id="${sh.id}">${won(shipValue(sh))}에 매각</button>`) : '<p class="muted" style="margin:0">화물과 계약을 모두 비워야 매각할 수 있습니다.</p>'}</div>`;
+  }
+  if (docked && sh.mode === 'fishing') h += `<div class="card"><p class="muted" style="margin:0">조업에서 돌아오면 생선을 팔 수 있습니다. 내륙(마포·충주·대구)이 가장 비쌉니다.</p></div>`;
+  return h;
+}
+function conRow(c, sh, active) {
+  const left = active ? c.deadline - S.day : c.offer - S.day;
+  const meta = active ? `배달 기한 ${left >= 0 ? left + '일 남음' : '<span class="neg">' + (-left) + '일 지연</span>'}` : `배달 ${c.due}일 이내 · 수락 마감 ${left}일`;
+  let act = '';
+  if (!active && sh) act = `<button class="btn pri" data-act="accept" data-c="${c.id}" data-id="${sh.id}" ${freeCap(sh) >= c.q ? '' : 'disabled'}>${freeCap(sh) >= c.q ? '수락' : '공간 부족'}</button>`;
+  return `<div class="con"><div class="l1"><span class="route">${PORTS[c.from].name} → ${PORTS[c.to].name}</span><span class="pay">${won(c.pay)}</span></div><div class="l1"><small>${GOODS[c.good].name} ${c.q}t · ${nf(c.km)}km · ${meta}</small>${act}</div></div>`;
+}
+function portPanel() {
+  const pid = UI.port || S.home, P = PORTS[pid];
+  let h = `<div class="row2"><select id="portSel" aria-label="항구 선택">${Object.keys(PORTS).map(p => `<option value="${p}" ${p === pid ? 'selected' : ''} ${portOpen(p) ? '' : 'disabled'}>${PORTS[p].name}${portOpen(p) ? '' : ` (${PORTS[p].era}시대)`}</option>`).join('')}</select></div>`;
+  h += `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2></div>`;
+  h += `<div class="row2">${'<span class="tag">항구 규모 ' + '■'.repeat(P.size) + '</span>'}${P.fish ? '<span class="tag">어장</span>' : ''}${P.tour ? `<span class="tag">관광 ${'★'.repeat(P.tour)}</span>` : ''}${P.traffic ? `<span class="tag">교통량 ${'▲'.repeat(P.traffic)}</span>` : ''}</div>`;
+  if (!portOpen(pid)) return h + `<div class="card"><p class="muted" style="margin:0">${PORTS[pid].era}시대(${ERA[P.era].name})에 열립니다. 필요 순자산 ${won(ERA[P.era].need)}.</p></div>`;
+  h += `<div class="card"><h3>시세 (t당)</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>화물</th><th class="r">살 때</th><th class="r">팔 때</th><th class="r">기준가 대비</th></tr></thead><tbody>`;
+  for (const g of Object.keys(GOODS).filter(goodOpen)) {
+    const ratio = price(pid, g) / GOODS[g].base, pct = Math.round((ratio - 1) * 100);
+    const tag = P.prod.includes(g) ? '<span class="tag p">생산</span>' : P.dem.includes(g) ? '<span class="tag d">수요</span>' : '';
+    const ev = S.events.find(e => e.port === pid && e.good === g);
+    h += `<tr><td class="gname">${GOODS[g].name}${tag}${ev ? `<span class="tag a">${ev.f > 1 ? '급등' : '급락'}</span>` : ''}</td><td class="r num">${won(buyUnit(pid, g))}</td><td class="r num">${won(sellUnit(pid, g))}</td><td class="r num ${pct >= 0 ? 'neg' : 'pos'}">${pct >= 0 ? '+' : ''}${pct}%</td></tr>`;
+  }
+  h += `</tbody></table></div><p class="muted" style="margin:8px 0 0;font-size:12px">기준가보다 낮으면(초록) 사기 좋고, 높으면(빨강) 팔기 좋습니다.</p></div>`;
+  const mine = S.ships.filter(s => s.loc === pid);
+  h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3>${mine.length ? `<div class="list">${mine.map(sh => `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${T(sh).role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${T(sh).name}</small></div><div class="st">${statusText(sh)}</div></button>`).join('')}</div>` : '<p class="muted" style="margin:0">없음</p>'}</div>`;
+  const cons = S.contracts.filter(c => c.from === pid);
+  if (cons.length) h += `<div class="card"><h3>${P.name} 출발 계약</h3><div class="list">${cons.map(c => conRow(c, null)).join('')}</div></div>`;
+  return h;
+}
+function consPanel() {
+  let h = `<p class="muted" style="margin:0">남의 화물을 기한 안에 날라주고 운임을 받습니다. 화물값이 들지 않고, 늦으면 운임이 절반입니다. 좋은 계약은 라이벌도 노립니다.</p>`;
+  const act = S.ships.flatMap(sh => sh.cons.map(c => ({ c, sh })));
+  if (act.length) h += `<div class="card"><h3>수행 중 ${act.length}건</h3><div class="list">${act.map(({ c, sh }) => conRow(c, null, true).replace('</div></div>', `</div><small class="muted">${esc(sh.name)}</small></div>`)).join('')}</div></div>`;
+  const list = [...S.contracts].sort((a, b) => b.pay - a.pay);
+  h += `<div class="card"><h3>제안된 계약 ${list.length}건</h3><div class="list">`;
+  for (const c of list) {
+    const ships = S.ships.filter(sh => sh.loc === c.from && !sh.voy && sh.mode !== 'fishing' && canCarry(sh, c.good) && freeCap(sh) >= c.q && routes(c.from, T(sh)).dist[c.to] !== undefined);
+    let row = conRow(c, null);
+    const btns = ships.length ? ships.slice(0, 3).map(sh => `<button class="btn pri" data-act="accept" data-c="${c.id}" data-id="${sh.id}">${esc(sh.name)}로 수락</button>`).join('') : `<small class="muted">${PORTS[c.from].name}에 실을 수 있는 배가 없음</small>`;
+    row = row.replace(/<\/div><\/div>$/, `</div><div class="acts" style="justify-content:flex-start">${btns}</div></div>`);
+    h += row;
+  }
+  h += `</div></div>`;
+  return h;
+}
+function yardPanel() {
+  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 유지비가 싸고 오래 씁니다. 중고선은 바로 쓰지만 연식만큼 유지비가 비쌉니다. 운임지수가 낮을 때(불황) 가격이 내려갑니다.</p>`;
+  h += `<div class="card"><h3>신조 발주 · 현금 ${won(S.cash)}</h3><div class="yard">`;
+  for (const [k, t] of Object.entries(SHIPS)) {
+    const lock = t.era > S.era, cost = newPrice(t);
+    h += `<div class="ycard${lock ? ' locked' : ''}"><div class="t"><b>${t.name}</b><span class="tag">${ROLE[t.role]}</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>속도</dt><dd>${t.speed}km/일</dd><dt>유지비</dt><dd>${won(t.upkeep)}/일</dd><dt>구역</dt><dd>${RANGE[t.range]}${t.river ? ' + 강' : ''}</dd><dt>건조</dt><dd>${t.build}일</dd></dl>${lock ? `<span class="muted" style="font-size:12px">${t.era}시대 해금 · 순자산 ${won(ERA[t.era].need)}</span>` : `<button class="btn pri" data-act="order" data-type="${k}" ${S.cash >= cost ? '' : 'disabled'}>발주 ${won(cost)}</button>`}</div>`;
+  }
+  for (const L of LATER) h += `<div class="ycard locked"><div class="t"><b>${L.name}</b><span class="tag">본편</span></div><span class="muted" style="font-size:12px">${L.cap} · ${L.era}에 등장</span></div>`;
+  h += `</div></div>`;
+  if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
+  h += `<div class="card"><h3>중고선 시장 · ${30 - (S.day % 30)}일 뒤 매물 교체</h3><div class="yard">`;
+  for (const L of S.used) {
+    const t = SHIPS[L.type], cost = usedPrice(L);
+    h += `<div class="ycard"><div class="t"><b>${t.name}</b><span class="tag">${L.age}년</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>위치</dt><dd>${PORTS[L.loc].name}</dd><dt>유지비</dt><dd>${won(t.upkeep * (1 + 0.03 * L.age))}/일</dd><dt>신조가 대비</dt><dd>${Math.round(cost / newPrice(t) * 100)}%</dd></dl><button class="btn pri" data-act="buyused" data-u="${L.id}" ${S.cash >= cost ? '' : 'disabled'}>매입 ${won(cost)}</button></div>`;
+  }
+  if (!S.used.length) h += `<p class="muted">매물 없음</p>`;
+  h += `</div></div>`;
+  return h;
+}
+function chartSvg() {
+  const H = S.hist; if (H.length < 2) return '<p class="muted" style="margin:0">기록이 쌓이면 그래프가 그려집니다.</p>';
+  const W = 640, Ht = 220, padL = 56, padR = 12, padT = 10, padB = 24;
+  const all = H.flatMap(p => [p.me, ...p.r]).filter(v => v > 0);
+  const lo = Math.log10(Math.max(100, Math.min(...all))), hi = Math.log10(Math.max(...all) * 1.1);
+  const X = d => padL + (d - H[0].d) / Math.max(1, H[H.length - 1].d - H[0].d) * (W - padL - padR);
+  const Y = v => padT + (1 - (Math.log10(Math.max(v, 100)) - lo) / Math.max(0.1, hi - lo)) * (Ht - padT - padB);
+  let g = '';
+  for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) {
+    const y = Y(10 ** e);
+    g += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${padL - 6}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--f-num)">${e >= 6 ? (10 ** (e - 6)) + 'M' : e >= 3 ? (10 ** (e - 3)) + 'K' : 10 ** e}</text>`;
+  }
+  const line = (k, col, w) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" points="${H.map(p => X(p.d).toFixed(1) + ',' + Y(k(p)).toFixed(1)).join(' ')}"/>`;
+  const cols = ['var(--brand)', 'var(--muted)', 'var(--accent)'];
+  S.rivals.forEach((r, i) => { g += line(p => p.r[i], cols[i], 1.5); });
+  g += line(p => p.me, 'var(--mine)', 2.5);
+  const last = H[H.length - 1];
+  g += `<circle cx="${X(last.d)}" cy="${Y(last.me)}" r="4" fill="var(--mine)"/>`;
+  g += `<text x="${padL}" y="${Ht - 6}" font-size="11" fill="var(--muted)">${dateStr(H[0].d).slice(0, 7)}</text><text x="${W - padR}" y="${Ht - 6}" font-size="11" fill="var(--muted)" text-anchor="end">${dateStr(last.d).slice(0, 7)}</text>`;
+  const legend = [[S.name, 'var(--mine)'], ...S.rivals.map((r, i) => [r.name, cols[i]])].map(([n, c]) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:12px"><i style="width:12px;height:3px;background:${c};display:inline-block"></i>${esc(n)}</span>`).join('');
+  return `<svg viewBox="0 0 ${W} ${Ht}" role="img" aria-label="순자산 추이 (로그 눈금)">${g}</svg><div style="margin-top:4px">${legend}</div>`;
+}
+function rankPanel() {
+  const nw = netWorth(), rl = rankList(), top = rl[0].w;
+  let h = '';
+  const nextEra = S.era < 3 ? ERA[S.era + 1] : null;
+  h += `<div class="card"><h3>시대 진행</h3><b>${S.era}. ${ERA[S.era].name}</b>${nextEra ? `<div class="prog"><i style="width:${clamp(nw / nextEra.need * 100, 0, 100)}%"></i></div><small class="muted">다음: ${nextEra.name} · 순자산 ${won(nw)} / ${won(nextEra.need)}</small>` : `<div class="prog"><i style="width:${clamp(nw / GOAL * 100, 0, 100)}%"></i></div><small class="muted">프로토타입 목표: 순자산 ${won(GOAL)} + 1위 · 현재 ${won(nw)}</small>`}</div>`;
+  h += `<div class="card"><h3>선박왕 쟁탈전 · 순자산 순위</h3><div class="rank">${rl.map((r, i) => `<div class="rrow${r.me ? ' me' : ''}"><span class="pl">${i + 1}</span><span class="nm">${esc(r.name)}</span><span class="num">${won(r.w)}</span><div class="bar"><i style="width:${Math.max(2, Math.log10(Math.max(r.w, 100)) / Math.log10(top) * 100)}%"></i></div></div>`).join('')}</div></div>`;
+  h += `<div class="card chart"><h3>순자산 추이 · 로그 눈금</h3>${chartSvg()}</div>`;
+  h += `<div class="card"><h3>뉴스</h3><div class="news">${S.news.map(n => `<div><span>${dateStr(n.d)}</span><p style="margin:0">${esc(n.t)}</p></div>`).join('')}</div></div>`;
+  h += `<div class="card"><h3>설정</h3><div class="list"><label class="chk"><input type="checkbox" id="optPause" ${S.autoPause ? 'checked' : ''}> 배가 도착하면 일시정지</label><label class="chk"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 시작 가이드 보기</label><div class="row2">${UI.confirm === 'new' ? `<span>진행 중인 게임이 지워집니다.</span><button class="btn warn" data-act="newgame">새 게임 시작</button><button class="btn" data-act="cancel">취소</button>` : `<button class="btn" data-act="askNew">새 게임</button>`}</div></div></div>`;
+  return h;
+}
+function renderPanel() {
+  const p = $('#panel'); let h = '';
+  if (UI.tab === 'fleet') { const sh = S.ships.find(s => s.id === UI.ship); h = sh ? shipDetail(sh) : fleetList(); }
+  else if (UI.tab === 'port') h = portPanel();
+  else if (UI.tab === 'cons') h = consPanel();
+  else if (UI.tab === 'yard') h = yardPanel();
+  else h = rankPanel();
+  p.innerHTML = h;
+}
+function render() { renderTop(); renderPanel(); drawBadges(); drawShips(); }
+
+/* ================= MODALS ================= */
+function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="mbox">${html}</div>`; m.hidden = false; }
+function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
+function startModal(hasSave) {
+  const pickBtn = (id, t, d) => `<button data-act="pickStart" data-p="${id}" class="${UI.startPick === id ? 'on' : ''}"><b>${t}</b><small>${d}</small></button>`;
+  modal(`<h1>선박왕</h1><p>강가의 원목선 한 척으로 시작해 동북아 바다를 누비는 선단을 만드세요. 화물을 싸게 사서 비싸게 팔고, 운임 계약을 따내고, 배를 사 모으면 라이벌 해운사 셋과의 순위 경쟁에서 1위를 노릴 수 있습니다.</p>
+  ${hasSave ? `<button class="btn pri wide" data-act="continue">이어하기</button><p style="font-size:12px">또는 새 게임:</p>` : ''}
+  <label for="coIn" style="font-weight:600;font-size:13px">회사 이름</label><input type="text" id="coIn" maxlength="12" value="한국해운">
+  <div class="starts">${pickBtn('mapo', '한강 · 마포', '여주 쌀, 충주 목재를 서울로. 안정적인 출발')}${pickBtn('gupo', '낙동강 · 구포', '긴 강과 많은 나루. 부산과 바로 연결')}</div>
+  <button class="btn ${hasSave ? '' : 'pri'} wide" data-act="start">새 게임 시작</button>
+  <p style="font-size:12px">프로토타입 · 1~3시대 · 진행은 이 브라우저에 자동 저장됩니다.</p>`);
+}
+function eraModal() {
+  const E = ERA[S.era];
+  const ships = Object.values(SHIPS).filter(t => t.era === S.era).map(t => t.name).join(', ');
+  const ports = Object.values(PORTS).filter(p => p.era === S.era).map(p => p.name).join(', ');
+  const goods = Object.values(GOODS).filter(g => g.era === S.era).map(g => g.name).join(', ');
+  modal(`<h1>${E.name}</h1><p>${S.name}의 순자산이 ${won(E.need)}을 넘었습니다. 시장이 커져 한 번에 더 많이 거래해도 값이 덜 흔들립니다.</p><div class="card kv" style="grid-template-columns:1fr"><div><small>새 선박</small><b style="font-family:var(--f-body)">${ships}</b></div><div><small>새 항구</small><b style="font-family:var(--f-body)">${ports}</b></div><div><small>새 화물</small><b style="font-family:var(--f-body)">${goods}</b></div></div>${S.era === 3 ? '<p>지도 오른쪽 위 「동북아」로 일본·중국 항로를 확인하세요.</p>' : ''}<button class="btn pri wide" data-act="close">계속</button>`);
+}
+function winModal() {
+  modal(`<h1>선박왕 등극</h1><p>${dateStr(S.day)}, ${S.name}이(가) 순자산 ${won(netWorth())}으로 라이벌 해운사를 모두 제쳤습니다. 프로토타입의 목표를 달성했습니다. 계속 플레이할 수 있습니다.</p><button class="btn pri wide" data-act="close">계속 경영하기</button>`);
+}
+function overModal() {
+  modal(`<h1>파산</h1><p>순자산이 0 아래로 떨어졌습니다. 유지비가 수입보다 많은 배가 없는지 확인해 보세요.</p><button class="btn pri wide" data-act="restart">처음부터</button>`);
+}
+
+/* ================= LOOP & INPUT ================= */
+function setPlaying(v) { UI.playing = v; if (S) renderTop(); }
+let lastTs = 0, lastPanel = 0;
+function frame(ts) {
+  const dt = lastTs ? Math.min(0.25, (ts - lastTs) / 1000) : 0; lastTs = ts;
+  if (S && UI.playing && $('#modal').hidden) {
+    UI.t += dt * UI.speed;
+    let ticked = false;
+    while (UI.t >= S.day + 1 && UI.playing) { tick(); ticked = true; }
+    if (!UI.playing) UI.t = Math.min(UI.t, S.day + 0.999);
+    if (ticked) render();
+  }
+  if (S) drawShips();
+  requestAnimationFrame(frame);
+}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
+
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, id = Number(el.dataset.id), sh = S && S.ships.find(s => s.id === id);
+  switch (a) {
+    case 'pickStart': UI.startPick = el.dataset.p; document.querySelectorAll('.starts button').forEach(b => b.classList.toggle('on', b.dataset.p === UI.startPick)); return;
+    case 'start': newGame(($('#coIn').value || '').trim(), UI.startPick); closeModal(); drawMap(); render(); save(); return;
+    case 'continue': S = loadSave(); UI.port = S.home; UI.t = S.day; closeModal(); drawMap(); render(); return;
+    case 'close': closeModal(); render(); return;
+    case 'restart': try { localStorage.removeItem(SAVE_KEY); } catch (e) {} UI.confirm = null; startModal(false); return;
+  }
+  if (!S) return;
+  switch (a) {
+    case 'play': setPlaying(!UI.playing); break;
+    case 'speed': UI.speed = SPEEDS[(SPEEDS.indexOf(UI.speed) + 1) % SPEEDS.length]; break;
+    case 'step': setPlaying(false); tick(); UI.t = S.day; break;
+    case 'view': UI.view = el.dataset.v; drawMap(); break;
+    case 'tab': UI.tab = el.dataset.t; UI.confirm = null; if (UI.tab === 'fleet') UI.ship = null; window.scrollTo({ top: 0 }); break;
+    case 'ship': UI.ship = id; UI.tab = 'fleet'; UI.confirm = null; if (sh && sh.loc) UI.port = sh.loc; break;
+    case 'back': UI.ship = null; UI.confirm = null; break;
+    case 'port': UI.port = el.dataset.p; UI.tab = 'port'; drawMap(); break;
+    case 'buy': if (sh) doBuy(sh, el.dataset.g, Number(el.dataset.q)); break;
+    case 'sell': if (sh) doSell(sh, el.dataset.g); break;
+    case 'sail': if (sh) doSail(sh, el.dataset.to); break;
+    case 'fish': if (sh) doFish(sh); break;
+    case 'mode': if (sh) sh.mode = el.dataset.m; break;
+    case 'accept': if (sh) doAccept(Number(el.dataset.c), sh); break;
+    case 'order': doOrder(el.dataset.type); break;
+    case 'buyused': doBuyUsed(el.dataset.u); break;
+    case 'askSell': UI.confirm = 'sell' + id; break;
+    case 'sellship': if (sh) doSellShip(sh); break;
+    case 'askNew': UI.confirm = 'new'; break;
+    case 'newgame': UI.confirm = null; setPlaying(false); startModal(false); return;
+    case 'cancel': UI.confirm = null; break;
+  }
+  render(); save();
+});
+document.addEventListener('change', ev => {
+  if (!S) return;
+  if (ev.target.id === 'portSel') { UI.port = ev.target.value; drawMap(); render(); }
+  if (ev.target.id === 'optPause') { S.autoPause = ev.target.checked; save(); }
+  if (ev.target.id === 'optTip') { S.tip = ev.target.checked; save(); }
+});
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S) drawMap(); }, 120); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S) { save(); setPlaying(false); } });
+document.addEventListener('keydown', ev => { if (ev.code === 'Space' && S && $('#modal').hidden && !/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) { ev.preventDefault(); setPlaying(!UI.playing); } });
+
+function start(data) {
+  if (data && data.S) { S = data.S; Object.assign(UI, data.UI || {}); UI.playing = false; drawMap(); render(); }
+  else startModal(!!loadSave());
+  requestAnimationFrame(frame);
+}
+window.claude?.hot?.snapshot?.(() => ({ S, UI: { tab: UI.tab, ship: UI.ship, port: UI.port, view: UI.view, speed: UI.speed, t: UI.t } }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
