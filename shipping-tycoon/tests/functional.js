@@ -141,5 +141,34 @@ test('시대가 바뀌면 새 항구로 가는 항로가 열린다 (항로 캐�
   E.S.era = 2; ok(E.routes('busan', t).dist.ulsan > 0, '2시대 부산→울산');
 });
 
+test('같은 날 중고선을 사고팔기를 반복해도 현금·순자산이 늘지 않는다 (순환 이익 없음)', () => {
+  for (const idx of [0.6, 1.0, 1.6]) { // 불황·보통·호황 시세 모두
+    const E = fresh(11); E.S.cash = 5e6; E.S.idx = idx; E.S.era = 3;
+    const cash0 = E.S.cash, nw0 = E.netWorth();
+    for (let k = 0; k < 30; k++) {
+      if (!E.S.used.length) E.genContract(); // keep the call shape simple; refill the market below
+      if (!E.S.used.length) break;
+      const L = E.S.used[0]; const before = E.S.ships.length;
+      ok(E.doBuyUsed(L.id), '중고선 매입 실패');
+      const sh = E.S.ships[E.S.ships.length - 1]; eq(E.S.ships.length, before + 1, '매입 후 척수');
+      ok(E.doSellShip(sh), '바로 매각 실패');
+      E.S.used.push({ ...L, id: 'again' + k }); // 같은 매물이 다시 나온다고 가정 (가장 불리한 경우)
+    }
+    ok(E.S.cash < cash0, `시세 ${idx}: 현금이 늘었음 (${Math.round(E.S.cash - cash0)})`);
+    ok(E.netWorth() < nw0, `시세 ${idx}: 순자산이 늘었음 (${Math.round(E.netWorth() - nw0)})`);
+  }
+});
+
+test('신조 발주 → 인도 사이에 순자산이 부풀지 않는다 (미실현 평가 이중 반영 없음)', () => {
+  const E = fresh(12); E.S.cash = 1e6; E.S.era = 2;
+  const nw0 = E.netWorth();
+  ok(E.doOrder('coaster'), '발주 실패');
+  ok(E.netWorth() <= nw0, '발주 직후 순자산 증가');
+  for (let d = 0; d < E.SHIPS.coaster.build + 1; d++) { E.S.idx = 1; E.tick(); }
+  const sh = E.S.ships.find(s => s.type === 'coaster'); ok(sh, '인도되지 않음');
+  // 인도 후 선박 평가액은 실제 지불액 이하여야 한다
+  ok(E.shipValue(sh) <= E.newPrice(E.SHIPS.coaster), '인도된 배의 평가액이 지불액보다 큼');
+});
+
 console.log(`\n${pass}개 통과 · ${fail}개 실패`);
 if (fail) process.exitCode = 1;
