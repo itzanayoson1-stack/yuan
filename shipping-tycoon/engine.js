@@ -5,15 +5,20 @@
 'use strict';
 let S = null;
 const HOOK = { toast() {}, sound() {}, pause() {}, era() {}, win() {}, over() {}, save() {}, sailed() {} };
-// Seeded random (mulberry32). The state lives in S.rs so a saved game continues the same sequence.
-function rand() {
-  let t = (S.rs = (S.rs + 0x6D2B79F5) | 0);
+// Seeded random (mulberry32). Two streams, both stored in the save:
+// S.ms = the outside world (freight index, oil, weather, port booms, rivals) — identical for a seed whatever the player does,
+// S.rs = everything the player's choices touch (jobs, used ships, accidents).
+function mulberry(key) {
+  let t = (S[key] = (S[key] + 0x6D2B79F5) | 0);
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
+const rand = () => mulberry('rs');
+const mrand = () => mulberry('ms');
+const mgauss = () => (mrand() + mrand() + mrand() - 1.5) * 2;
 /* ================= DATA ================= */
-const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v3', SAVE_VERSION = 3;
+const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v4', SAVE_VERSION = 4;
 const ERA = [null,
   { name: '강의 시대', need: 0 },
   { name: '연안의 시대', need: 20000 },
@@ -192,9 +197,9 @@ function wxProbs(area, m) {
 }
 function nextWx(area, prev, day) {
   const m = dateOf(day).getUTCMonth(), p = wxProbs(area, m);
-  if (prev === 3 && rand() < 0.55) return 3;
-  if (prev > 0 && rand() < 0.5 && p[prev] > 0) return prev;
-  let r = rand(); for (let i = 0; i < 4; i++) { if (r < p[i]) return i; r -= p[i]; } return 0;
+  const a = mrand(), b = mrand(); let r = mrand(); // always draw three, so the stream never depends on the branch
+  if (prev === 3 && a < 0.55) return 3;
+  if (prev > 0 && b < 0.5 && p[prev] > 0) return prev; for (let i = 0; i < 4; i++) { if (r < p[i]) return i; r -= p[i]; } return 0;
 }
 const wxNow = (area, k = 0) => S.wx[area][Math.min(k, 2)];
 
@@ -266,8 +271,9 @@ function news(t) { S.news.unshift({ d: S.day, t }); if (S.news.length > 60) S.ne
 /* ================= GAME SETUP ================= */
 function newGame(name, home, seed) {
   S = { rs: (seed === undefined ? Math.floor(Math.random() * 2 ** 31) : seed) | 0 };
+  S.ms = (S.rs ^ 0x5bd1e995) | 0;
   Object.assign(S, {
-    v: SAVE_VERSION, seed: S.rs, name: name || '한국해운', home, day: 0, cash: 600, era: 1, idx: 1, shock: 0, phase: rand() * 6.28, oil: 1, oilShock: 0,
+    v: SAVE_VERSION, seed: S.rs, name: name || '한국해운', home, day: 0, cash: 600, era: 1, idx: 1, shock: 0, phase: mrand() * 6.28, oil: 1, oilShock: 0,
     ships: [], seq: {}, sid: 1, uid: 1, contracts: [], cid: 1, used: [], orders: [], events: [], wx: {},
     rivals: RIVALS.map(r => ({ ...r })), news: [], hist: [], won: false, over: false, autoPause: true, tip: true,
     // company-wide ledger for reports and balance KPIs
@@ -332,7 +338,7 @@ function genContract(forceFrom, forceType) {
    Every action checks its own rules (the screen only hides buttons) and returns true when it happened. */
 const docked = sh => !!sh && !!sh.loc && !sh.voy;
 const canOperate = sh => docked(sh) && (sh.mode === 'idle' || sh.mode === 'tour' || sh.mode === 'bunker');
-function isValidSave(o) { return !!o && o.v === SAVE_VERSION && typeof o.rs === 'number' && Array.isArray(o.ships) && !!o.stats; }
+function isValidSave(o) { return !!o && o.v === SAVE_VERSION && typeof o.rs === 'number' && typeof o.ms === 'number' && Array.isArray(o.ships) && !!o.stats; }
 function doRefuel(sh, frac) {
   if (!docked(sh) || !T(sh).tank) return false;
   const t = T(sh), want = Math.max(0, t.tank * frac - sh.fuel), price = fuelPrice(sh.loc);
@@ -431,15 +437,18 @@ function tick() {
     if (w[0] === 3 && before !== 3 && a !== 'river') news(`${AREAS[a]}에 태풍 — 항해 중인 배가 느려지고 연료를 많이 씁니다`);
   }
   // markets: freight index (2-year cycle) and oil price (random walk + rare shocks)
-  S.shock = S.shock * 0.97 + gauss() * 0.025;
+  S.shock = S.shock * 0.97 + mgauss() * 0.025;
   S.idx = clamp(1 + 0.3 * Math.sin(2 * Math.PI * S.day / 720 + S.phase) + S.shock, 0.55, 1.6);
   S.oilShock *= 0.985;
-  if (S.era >= 2 && rand() < 0.0015) { S.oilShock += 0.8; news('중동 정세 불안 — 국제 유가 급등'); HOOK.toast('유가 급등! 기름값이 크게 올랐습니다'); }
-  S.oil = clamp(S.oil + (1 - S.oil) * 0.02 + gauss() * 0.018, 0.6, 1.6);
+  const oilDraw = mrand();
+  // oil shocks come from outside, whatever era the company is in
+  if (oilDraw < 0.0015) { S.oilShock += 0.8; news('중동 정세 불안 — 국제 유가 급등'); HOOK.toast('유가 급등! 기름값이 크게 올랐습니다'); }
+  S.oil = clamp(S.oil + (1 - S.oil) * 0.02 + mgauss() * 0.018, 0.6, 1.6);
   S.events = S.events.filter(e => e.until > S.day);
-  if (rand() < 0.02) {
-    const p = pick(Object.keys(PORTS).filter(portOpen));
-    S.events.push({ port: p, until: S.day + rint(12, 25) });
+  const evDraw = mrand(), evPort = Object.keys(PORTS)[Math.floor(mrand() * Object.keys(PORTS).length)], evLen = 12 + Math.floor(mrand() * 14);
+  if (evDraw < 0.02 && portOpen(evPort)) {
+    const p = evPort;
+    S.events.push({ port: p, until: S.day + evLen });
     news(`${PORTS[p].name} 물동량 급증 — 그 항구에서 나가는 운임이 오릅니다`);
   }
   // ships
@@ -510,7 +519,7 @@ function tick() {
   for (const sh of S.ships) if (sh.loc && !sh.voy && T(sh).role === 'cargo' && rand() < 0.15 && !S.contracts.some(c => c.from === sh.loc && c.q <= T(sh).cap && canCarry(sh, c.good))) genContract(sh.loc, sh.type);
   if (S.day % 30 === 0) refreshUsed();
   for (const r of S.rivals) {
-    const g = 0.016 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) - 0.004 * (oilLevel() - 1) + gauss() * r.noise;
+    const g = 0.016 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) - 0.004 * (oilLevel() - 1) + mgauss() * r.noise;
     r.w = Math.max(500, r.w * (1 + g));
   }
   const nw = netWorth();

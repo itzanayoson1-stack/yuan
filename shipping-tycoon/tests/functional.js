@@ -170,5 +170,17 @@ test('신조 발주 → 인도 사이에 순자산이 부풀지 않는다 (미�
   ok(E.shipValue(sh) <= E.newPrice(E.SHIPS.coaster), '인도된 배의 평가액이 지불액보다 큼');
 });
 
+test('같은 시드면 플레이 방식이 달라도 시황·유가·날씨·라이벌은 똑같다 (외생 시황 고정)', () => {
+  const world = style => {
+    const E = fresh(21); const bot = makeBot(E, style); const trace = [];
+    for (let d = 0; d < 400; d++) { bot(); E.tick(); trace.push([E.S.idx, E.S.oil, E.S.oilShock, JSON.stringify(E.S.wx), E.S.rivals.map(r => r.w).join()].join('|')); }
+    return trace;
+  };
+  const a = world('safe'), b = world('novice');
+  // 운임지수·유가·유가 충격·날씨·라이벌 (항구 이벤트는 열린 항구에만 걸리므로 제외)
+  eq(a.length, b.length, '기록 길이');
+  for (let i = 0; i < a.length; i++) if (a[i].split('|').slice(0, 3).join() !== b[i].split('|').slice(0, 3).join() || a[i].split('|')[3] !== b[i].split('|')[3] || a[i].split('|')[4] !== b[i].split('|')[4]) throw new Error(`${i + 1}일째 시장이 달라짐`);
+});
+
 console.log(`\n${pass}개 통과 · ${fail}개 실패`);
 if (fail) process.exitCode = 1;
