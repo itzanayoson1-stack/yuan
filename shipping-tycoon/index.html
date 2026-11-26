@@ -8,7 +8,7 @@
   --bg: #e9eff2; --panel: #ffffff; --panel-2: #f3f6f8; --ink: #14202e; --muted: #5b6977; --line: #d2dbe1;
   --sea: #cde0eb; --land: #eee6cc; --land-edge: #b8a982; --river: #4f8cc2; --lane: #7c9bb1;
   --brand: #0b4f8a; --brand-ink: #ffffff; --accent: #e3a008; --mine: #e2580f;
-  --pos: #1d7a4b; --neg: #c0262d; --chip: #e4ecf1;
+  --pos: #1d7a4b; --neg: #c0262d; --chip: #e4ecf1; --sky1: #cfe6f5; --sky2: #eef5ea;
   --f-display: 'Black Han Sans', 'IBM Plex Sans KR', system-ui, sans-serif;
   --f-body: 'IBM Plex Sans KR', system-ui, -apple-system, sans-serif;
   --f-num: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
@@ -17,12 +17,12 @@
   --bg: #091119; --panel: #101b26; --panel-2: #0d1720; --ink: #dce6ee; --muted: #8b9cab; --line: #213140;
   --sea: #0c2131; --land: #1b2520; --land-edge: #34453b; --river: #3f80b8; --lane: #3a566a;
   --brand: #5aa6ea; --brand-ink: #071019; --accent: #f2b705; --mine: #ff7a33;
-  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; color-scheme: dark; } }
+  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; --sky1: #0d1a2e; --sky2: #1c2a3a; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #091119; --panel: #101b26; --panel-2: #0d1720; --ink: #dce6ee; --muted: #8b9cab; --line: #213140;
   --sea: #0c2131; --land: #1b2520; --land-edge: #34453b; --river: #3f80b8; --lane: #3a566a;
   --brand: #5aa6ea; --brand-ink: #071019; --accent: #f2b705; --mine: #ff7a33;
-  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; color-scheme: dark; }
+  --pos: #4cc38a; --neg: #ff6b6b; --chip: #182735; --sky1: #0d1a2e; --sky2: #1c2a3a; color-scheme: dark; }
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
@@ -51,13 +51,26 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .stat b { display: block; font-family: var(--f-num); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); }
-.mapbox { position: relative; height: 44vh; min-height: 260px; max-height: 520px; background: var(--sea); border-bottom: 1px solid var(--line); }
+.mapbox { position: relative; height: 50vh; min-height: 260px; max-height: 520px; background: var(--sea); border-bottom: 1px solid var(--line); }
+.p3 { position: absolute; inset: 0; background: linear-gradient(180deg, var(--sky1), var(--sky2)); overflow: hidden; }
+.p3c { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.p3o { position: absolute; inset: 0; pointer-events: none; }
+.p3lab { position: absolute; left: 0; top: 0; pointer-events: auto; border: 0; background: var(--panel); color: var(--ink); font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); white-space: nowrap; }
+.p3lab:hover { background: var(--accent); color: #1b1400; }
+.p3lab .bang { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 3px; border-radius: 9px; background: var(--accent); color: #1b1400; font-size: 11px; font-family: var(--f-num); }
+.p3bub, .p3tag { position: absolute; left: 0; top: 0; background: #fffdf7; color: #22221f; border: 1.5px solid #2b2420; border-radius: 10px; padding: 4px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.p3bub::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 8px; height: 8px; background: #fffdf7; border-right: 1.5px solid #2b2420; border-bottom: 1.5px solid #2b2420; transform: translateX(-50%) rotate(45deg); }
+.p3tag { background: var(--mine); color: #fff; border-color: transparent; }
+.p3chip { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; right: 12px; font-size: 11.5px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 0 var(--sky2); }
+.p3chip b { color: var(--ink); font-size: 13px; }
+.p3more { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: 10px; background: var(--mine); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 #map { width: 100%; height: 100%; display: block; touch-action: manipulation; }
 .mapctl { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 10px; display: flex; gap: 4px; }
 .mapctl button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
 .mapctl button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 .legend { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; display: flex; gap: 10px; font-size: 11px; color: var(--muted);
   background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 3px 8px; border-radius: 6px; }
+.legend[hidden] { display: none; }
 .legend span::before { content: ""; display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--river); vertical-align: middle; margin-right: 4px; }
 .legend span.c::before { border-top: 1.5px dashed var(--lane); }
 .legend span.s::before { width: 10px; height: 6px; border: 0; background: var(--mine); clip-path: polygon(0 0, 70% 0, 100% 50%, 70% 100%, 0 100%); }
@@ -162,7 +175,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
 #toast div { background: var(--ink); color: var(--panel); padding: 9px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); animation: tin 0.2s ease-out; }
 @keyframes tin { from { transform: translateY(8px); opacity: 0; } }
-#modal { position: fixed; inset: 0; z-index: 40; background: rgb(5 12 20 / 0.55); display: grid; place-items: center;
+#modal { position: fixed; inset: 0; z-index: 40; background: rgb(5 12 20 / 0.3); display: grid; place-items: center;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
 #modal[hidden] { display: none; }
 .mbox { background: var(--panel); border-radius: 14px; padding: 20px; width: min(100%, 460px); max-height: 92vh; overflow-y: auto; display: grid; gap: 12px; border: 1px solid var(--line); }
@@ -203,6 +216,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
       <button id="bPlay" data-act="play" aria-label="재생/일시정지">▶</button>
       <button id="bSpeed" data-act="speed" aria-label="속도">1×</button>
       <button data-act="step" aria-label="하루 진행">+1일</button>
+      <button id="bSnd" data-act="snd" aria-label="소리 켜기/끄기">♪</button>
     </div>
   </div>
   <div class="stats">
@@ -216,8 +230,9 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 <div class="layout">
   <div class="mapbox">
     <svg id="map" role="img" aria-label="항구와 항로 지도"></svg>
-    <div class="mapctl"><button data-act="view" data-v="kr" id="vKr">국내</button><button data-act="view" data-v="nea" id="vNea">동북아</button></div>
-    <div class="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
+    <div id="p3" class="p3" hidden></div>
+    <div class="mapctl"><button data-act="view" data-v="port3d" id="vP3">항구</button><button data-act="view" data-v="kr" id="vKr">국내</button><button data-act="view" data-v="nea" id="vNea">동북아</button></div>
+    <div class="legend" id="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
   </div>
   <div class="side">
     <nav class="tabs" id="tabs">
@@ -233,6 +248,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 <div id="toast" aria-live="polite"></div>
 <div id="modal" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 <script>
 'use strict';
 /* ================= DATA ================= */
@@ -365,7 +381,7 @@ for (const [a, b, t] of EDGES) {
 
 /* ================= STATE ================= */
 let S = null;
-const UI = { tab: 'fleet', ship: null, port: null, view: 'kr', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo' };
+const UI = { tab: 'fleet', ship: null, port: null, view: 'port3d', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo' };
 const SPEEDS = [0.5, 1, 2, 4];
 
 const portOpen = id => PORTS[id].era <= S.era;
@@ -450,7 +466,7 @@ function newGame(name, home) {
   for (let i = 0; i < 8; i++) genContract();
   news(`${S.name} 창업. ${PORTS[home].name} 나루에서 원목선 한 척으로 시작합니다.`);
   S.hist.push(histPoint());
-  UI.port = home; UI.ship = null; UI.tab = 'fleet'; UI.t = 0; UI.view = 'kr';
+  UI.port = home; UI.ship = null; UI.tab = 'fleet'; UI.t = 0; UI.view = P3.ok ? 'port3d' : 'kr';
 }
 function addShip(type, loc, ageDays) {
   const t = SHIPS[type]; S.seq[type] = (S.seq[type] || 0) + 1;
@@ -509,14 +525,14 @@ function doBuy(sh, g, q) {
   S.cash -= cost; S.market[sh.loc][g].s -= q / depth(sh.loc);
   const c = sh.cargo[g] || (sh.cargo[g] = { q: 0, cost: 0 });
   c.cost = (c.cost * c.q + cost) / (c.q + q); c.q += q;
-  toast(`${GOODS[g].name} ${q}t 매수 ${won(cost)}`);
+  toast(`${GOODS[g].name} ${q}t 매수 ${won(cost)}`); SND.play('click');
 }
 function doSell(sh, g) {
   const c = sh.cargo[g]; if (!c || !c.q) return;
   const rev = sellRev(sh.loc, g, c.q), gain = rev - c.cost * c.q;
   S.cash += rev; S.market[sh.loc][g].s += c.q / depth(sh.loc);
   toast(`${GOODS[g].name} ${c.q}t 매도 ${won(rev)} (차익 ${sgn(gain)})`);
-  delete sh.cargo[g];
+  delete sh.cargo[g]; SND.play('coin');
 }
 function doSail(sh, to) {
   const t = T(sh), R = routes(sh.loc, t);
@@ -524,7 +540,7 @@ function doSail(sh, to) {
   const d = days(R.dist[to], t.speed);
   sh.voy = { from: sh.loc, to, path: pathOf(R, to), dep: S.day, arr: S.day + d };
   sh.loc = null; sh.mode = 'idle'; UI.confirm = null;
-  toast(`${sh.name} 출항 → ${PORTS[to].name} (${d}일)`);
+  toast(`${sh.name} 출항 → ${PORTS[to].name} (${d}일)`); SND.play('horn');
   if (!UI.playing) setPlaying(true);
 }
 function doFish(sh) {
@@ -538,7 +554,7 @@ function doAccept(cid, sh) {
   if (sh.loc !== c.from || freeCap(sh) < c.q || !canCarry(sh, c.good)) return;
   S.contracts.splice(i, 1);
   sh.cons.push({ ...c, deadline: S.day + c.due });
-  toast(`계약 수락: ${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}`);
+  SND.play('click'); toast(`계약 수락: ${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}`);
 }
 function doOrder(type) {
   const t = SHIPS[type], cost = newPrice(t);
@@ -619,7 +635,7 @@ function tick() {
         } else keep.push(c);
       }
       sh.cons = keep;
-      news(msg); toast(msg); arrived = true;
+      news(msg); toast(msg); arrived = true; SND.play('bell');
     }
   }
   if (S.cash < 0) S.cash *= 1.001;
@@ -651,7 +667,7 @@ function tick() {
   // era, history, end states
   const nw = netWorth();
   if (S.era < 3 && nw >= ERA[S.era + 1].need) {
-    S.era++;
+    S.era++; SND.play('fanfare');
     news(`${ERA[S.era].name} 개막`);
     for (const p in PORTS) if (PORTS[p].era === S.era) news(`${PORTS[p].name} 항로 개설`);
     refreshUsed();
@@ -669,6 +685,12 @@ function tick() {
 const VIEWS = { kr: [490, 236, 362, 518], nea: [30, 80, 1300, 900] };
 function landPath(poly) { return 'M' + poly.map(([la, lo]) => proj(la, lo).map(v => v.toFixed(1)).join(',')).join('L') + 'Z'; }
 function drawMap() {
+  const in3d = UI.view === 'port3d' && P3.ok && p3Ready;
+  $('#map').style.visibility = in3d ? 'hidden' : 'visible';
+  $('#legend').hidden = in3d;
+  if (in3d) { P3.show(); return; }
+  P3.hide();
+  if (UI.view === 'port3d') UI.view = 'kr';
   const svg = $('#map'), vb = VIEWS[UI.view];
   svg.setAttribute('viewBox', vb.join(' '));
   const r = svg.getBoundingClientRect();
@@ -748,6 +770,493 @@ function drawShips() {
   g.innerHTML = h;
 }
 
+/* ================= SOUND (tiny WebAudio synth) ================= */
+const SND = {
+  on: (() => { try { return localStorage.getItem('shipking-snd') !== '0'; } catch (e) { return true; } })(),
+  ctx: null,
+  tone(f, t0, dur, type, vol, f2) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, c.currentTime + t0);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, c.currentTime + t0 + dur);
+    g.gain.setValueAtTime(0.0001, c.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(vol, c.currentTime + t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + t0 + dur);
+    o.connect(g).connect(c.destination); o.start(c.currentTime + t0); o.stop(c.currentTime + t0 + dur + 0.05);
+  },
+  play(kind) {
+    if (!this.on) return;
+    try {
+      this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (kind === 'coin') { this.tone(988, 0, 0.12, 'square', 0.05); this.tone(1319, 0.08, 0.25, 'square', 0.05); }
+      else if (kind === 'click') this.tone(660, 0, 0.06, 'triangle', 0.06);
+      else if (kind === 'horn') { this.tone(98, 0, 0.9, 'sawtooth', 0.06); this.tone(147, 0, 0.9, 'sawtooth', 0.035); }
+      else if (kind === 'bell') { this.tone(1568, 0, 0.5, 'sine', 0.06); this.tone(2093, 0.1, 0.5, 'sine', 0.04); }
+      else if (kind === 'fanfare') [523, 659, 784, 1047].forEach((f, i) => this.tone(f, i * 0.12, 0.35, 'square', 0.045));
+    } catch (e) { /* audio unavailable */ }
+  },
+};
+
+/* ================= 3D PORT · voxel diorama =================
+   Every model is built in code from coloured boxes (no model files),
+   merged into a few meshes with one vertex-coloured material. */
+function josa(w, a, b) { const c = w.charCodeAt(w.length - 1) - 0xac00; return w + (c >= 0 && c < 11172 && c % 28 ? a : b); }
+function portHints(pid) {
+  if (!S) return ['어서 오세요, 선주님!', '오늘은 바람이 좋네요', '강에 배가 많아졌어요', '새 배는 언제 들어오려나'];
+  const P = PORTS[pid], out = [], gs = Object.keys(GOODS).filter(goodOpen);
+  const ratio = g => price(pid, g) / GOODS[g].base;
+  const cheap = gs.reduce((a, g) => ratio(g) < ratio(a) ? g : a), dear = gs.reduce((a, g) => ratio(g) > ratio(a) ? g : a);
+  out.push(`오늘 ${josa(GOODS[cheap].name, '이', '가')} 싸요! ${won(buyUnit(pid, cheap))}/t`);
+  out.push(`${GOODS[dear].name} 찾는 사람이 많아요. ${won(sellUnit(pid, dear))}에 사요`);
+  let best = null;
+  for (const p in PORTS) if (p !== pid && portOpen(p)) { const u = sellUnit(p, cheap); if (!best || u > best.u) best = { p, u }; }
+  if (best) out.push(`${josa(GOODS[cheap].name, '은', '는')} ${PORTS[best.p].name}에서 ${won(best.u)}까지 쳐준대요`);
+  for (const e of S.events) if (e.port === pid) out.push(`${GOODS[e.good].name} 값이 ${e.f > 1 ? '치솟았어요!' : '폭락했어요…'}`);
+  const n = S.contracts.filter(c => c.from === pid).length;
+  if (n) out.push(`계약소에 운임 계약 ${n}건이 기다려요`);
+  const m = dateOf(S.day).getUTCMonth();
+  if (m >= 6 && m <= 8) out.push('태풍철이에요. 바닷길 조심하세요');
+  if (S.idx > 1.15) out.push('요즘 해운 경기가 좋대요');
+  if (S.idx < 0.85) out.push('불황이라 배값이 싸졌대요. 살 때예요');
+  if (P.tour) out.push('여긴 낚시 손님이 많아요');
+  return out;
+}
+
+const P3 = (() => {
+  const THREE = window.THREE;
+  if (!THREE) return { ok: false, show() {}, hide() {}, sync() {}, frame() {} };
+  const PAL = {
+    grass: '#8cc46a', grass2: '#9bd078', grass3: '#7db85d', dirt: '#b98d5f', dirt2: '#a77d52', dirt3: '#8f6a45',
+    path: '#dfcfa4', stone: '#c3bdb0', stone2: '#a9a497', bed: '#7d6a4e', sea: '#4f9fc6', river: '#5aa6a0',
+    plank: '#c9a975', plank2: '#b08d5e', wood: '#8a6a48', woodDark: '#6b4f36', post: '#4a3a2c',
+    wall: '#f1e8d4', wall2: '#e4d7bb', roofRed: '#d8604a', roofRed2: '#bf4d3a', roofBlue: '#5c7fb8', roofBlue2: '#4a6aa0', roofGray: '#7b8794', roofGray2: '#68737f', thatch: '#d6b964', thatch2: '#c2a453',
+    window: '#8fd3e8', door: '#7d5a3e', awn1: '#e8574a', awn2: '#f7f3ea',
+    leaf: '#6fae4e', leaf2: '#5a9440', leaf3: '#86c25f', trunk: '#7a5a3c', pine: '#3f7f4f', pine2: '#4f9a5f', reed: '#a9b86a',
+    wheat: '#d9c65a', paddy: '#a9cf6a', soil: '#6f5138', salt: '#f4f6f4', saltWater: '#cfe8ee', fish: '#c9d3da',
+    crane: '#f2b134', crane2: '#d99a22', steel: '#6c7680', tank: '#ecebe4', band: '#d8433c', coal: '#2f3133', ore: '#a0523a', cement: '#c8c6c0',
+    crateA: '#b48a5a', crateB: '#5c7fb8', crateC: '#d8604a', crateD: '#6aa56a', crateE: '#e8b84a',
+    hullRed: '#c8483c', hullDeep: '#7a2e2a', hullNavy: '#2f4f7f', hullBlue: '#3d78b8', hullWhite: '#f4f2ec', hullBlack: '#33363d', bottom: '#a33a32',
+    sail: '#e2b552', sail2: '#cf9e3e', canopy: '#e8574a', funnel: '#2b2d31', bridge: '#f4f2ec',
+    skin: '#f0c9a0', hair1: '#3b2a1e', hair2: '#8a5a2b', hair3: '#d8b06a', pants: '#3d4450',
+    cloth: ['#7a6fb8', '#d8604a', '#4f86c6', '#6aa56a', '#e0b04a', '#f2f0ea'],
+    lamp: '#ffd27a', flag: '#e2580f', light: '#fff4c2', lhRed: '#d8433c', lhWhite: '#f7f7f2', cloud: '#f7fafc', mark: '#f2b705',
+  };
+  const CC = {}; const col = h => CC[h] || (CC[h] = new THREE.Color(h));
+  class VB {
+    constructor() { this.p = []; this.n = []; this.c = []; this.i = []; this.k = 0; this.ox = 0; this.oy = 0; this.oz = 0; }
+    at(x, y, z) { this.ox = x; this.oy = y; this.oz = z; return this; }
+    quad(v, n, c) { for (const [x, y, z] of v) { this.p.push(x + this.ox, y + this.oy, z + this.oz); this.n.push(n[0], n[1], n[2]); this.c.push(c.r, c.g, c.b); } const k = this.k; this.i.push(k, k + 1, k + 2, k, k + 2, k + 3); this.k += 4; }
+    box(a, b, c, d, e, f, hex, under) {
+      if (a > b) [a, b] = [b, a]; if (c > d) [c, d] = [d, c]; if (e > f) [e, f] = [f, e];
+      const k = col(hex);
+      this.quad([[a, d, e], [a, d, f], [b, d, f], [b, d, e]], [0, 1, 0], k);
+      this.quad([[b, c, e], [b, d, e], [b, d, f], [b, c, f]], [1, 0, 0], k);
+      this.quad([[a, c, f], [a, d, f], [a, d, e], [a, c, e]], [-1, 0, 0], k);
+      this.quad([[a, c, f], [b, c, f], [b, d, f], [a, d, f]], [0, 0, 1], k);
+      this.quad([[b, c, e], [a, c, e], [a, d, e], [b, d, e]], [0, 0, -1], k);
+      if (under) this.quad([[a, c, e], [b, c, e], [b, c, f], [a, c, f]], [0, -1, 0], k);
+      return this;
+    }
+    get empty() { return this.k === 0; }
+    build() {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
+      g.setIndex(this.i); g.computeBoundingSphere(); return g;
+    }
+  }
+  const matVox = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const matGlow = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const matWater = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.86 });
+  const mesh = (vb, m = matVox, shadow = true) => { const o = new THREE.Mesh(vb.build(), m); o.castShadow = shadow; o.receiveShadow = true; return o; };
+  function rng(str) { let h = 1779033703; for (const ch of String(str)) h = Math.imul(h ^ ch.charCodeAt(0), 3432918353); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+
+  /* ---------- ship models (bow toward +z, waterline y=0) ---------- */
+  function hull(b, w, L, h, c, bot) {
+    b.box(-w / 2 + 0.06, w / 2 - 0.06, -0.32, 0, -L / 2 + 0.15, L / 2 - 0.35, bot);
+    b.box(-w / 2, w / 2, 0, h, -L / 2, L / 2 - 0.45, c);
+    b.box(-w * 0.36, w * 0.36, 0, h, L / 2 - 0.45, L / 2 - 0.12, c);
+    b.box(-w * 0.14, w * 0.14, 0.04, h + 0.04, L / 2 - 0.12, L / 2 + 0.06, c);
+  }
+  function bridge(b, w, z0, z1, hgt, base) {
+    b.box(-w / 2, w / 2, base, base + hgt, z0, z1, PAL.bridge);
+    b.box(-w / 2 - 0.01, w / 2 + 0.01, base + hgt - 0.28, base + hgt - 0.14, z1 - 0.01, z1 + 0.01, PAL.window);
+    b.box(-w / 2 - 0.06, w / 2 + 0.06, base + hgt, base + hgt + 0.07, z0 - 0.05, z1 + 0.05, PAL.steel);
+  }
+  const SHIPGEO = {};
+  const SHIPLEN = { raft: 1.8, hwangpo: 2.4, fishing: 2.1, leisure: 2.3, coaster: 3.4, bunker: 3.0, bulk: 5.0, feeder: 5.2, tanker: 5.2 };
+  function shipGeo(type) {
+    if (SHIPGEO[type]) return SHIPGEO[type];
+    const b = new VB();
+    if (type === 'raft') {
+      for (let k = -2; k <= 2; k++) b.box(k * 0.19 - 0.09, k * 0.19 + 0.09, -0.08, 0.1, -0.9, 0.9, k % 2 ? PAL.plank : PAL.plank2);
+      b.box(-0.5, 0.5, 0.1, 0.14, -0.62, -0.5, PAL.wood).box(-0.5, 0.5, 0.1, 0.14, 0.5, 0.62, PAL.wood);
+      b.box(-0.22, 0.2, 0.14, 0.5, -0.4, 0.05, PAL.crateA).box(-0.2, 0.18, 0.5, 0.62, -0.35, 0.0, PAL.wheat);
+      b.box(-0.03, 0.03, 0.14, 1.15, 0.45, 0.51, PAL.post).box(0.03, 0.36, 0.86, 1.08, 0.47, 0.49, PAL.flag);
+    } else if (type === 'hwangpo') {
+      hull(b, 0.8, 2.4, 0.3, PAL.wood, PAL.woodDark);
+      b.box(-0.3, 0.3, 0.3, 0.34, -1.0, 0.7, PAL.plank);
+      b.box(-0.28, 0.28, 0.3, 0.62, -1.15, -0.65, PAL.plank2).box(-0.33, 0.33, 0.62, 0.68, -1.2, -0.6, PAL.thatch);
+      b.box(-0.04, 0.04, 0.3, 2.3, -0.05, 0.03, PAL.post);
+      b.box(-0.62, 0.62, 0.7, 2.05, 0.05, 0.1, PAL.sail);
+      for (const y of [0.95, 1.3, 1.65, 2.0]) b.box(-0.64, 0.64, y, y + 0.05, 0.04, 0.11, PAL.sail2);
+    } else if (type === 'fishing') {
+      hull(b, 0.85, 2.1, 0.35, PAL.hullWhite, PAL.bottom);
+      b.box(-0.44, 0.44, 0.2, 0.28, -1.05, 0.62, PAL.hullBlue);
+      b.box(-0.3, 0.3, 0.35, 0.85, -0.65, -0.05, PAL.hullWhite).box(-0.31, 0.31, 0.6, 0.74, -0.55, -0.15, PAL.window).box(-0.35, 0.35, 0.85, 0.93, -0.7, 0.0, PAL.hullBlue);
+      b.box(-0.03, 0.03, 0.35, 1.55, 0.35, 0.41, PAL.steel);
+      [PAL.flag, PAL.mark, PAL.hullBlue].forEach((c, i) => b.box(0.03, 0.22, 1.35 - i * 0.2, 1.48 - i * 0.2, 0.36 + i * 0.12, 0.4 + i * 0.12, c));
+      b.box(-0.22, 0.22, 0.35, 0.56, -1.0, -0.78, PAL.awn1);
+    } else if (type === 'leisure') {
+      hull(b, 0.85, 2.3, 0.32, PAL.hullWhite, PAL.hullBlue);
+      b.box(-0.34, 0.34, 0.32, 0.36, -1.0, 0.6, PAL.plank);
+      for (const [x, z] of [[-0.35, -0.75], [0.35, -0.75], [-0.35, 0.45], [0.35, 0.45]]) b.box(x - 0.03, x + 0.03, 0.36, 1.0, z - 0.03, z + 0.03, PAL.steel);
+      for (let s = 0; s < 4; s++) b.box(-0.46 + s * 0.23, -0.23 + s * 0.23, 1.0, 1.08, -0.85, 0.55, s % 2 ? PAL.awn2 : PAL.canopy);
+      b.box(0.4, 0.43, 0.36, 1.25, 0.65, 0.68, PAL.post).box(-0.43, -0.4, 0.36, 1.15, 0.7, 0.73, PAL.post);
+    } else if (type === 'coaster') {
+      hull(b, 1.0, 3.4, 0.5, PAL.hullNavy, PAL.bottom);
+      b.box(-0.38, 0.38, 0.5, 0.64, -0.6, 1.1, PAL.crateA).box(-0.39, 0.39, 0.56, 0.6, -0.1, 0.0, PAL.woodDark).box(-0.39, 0.39, 0.56, 0.6, 0.5, 0.6, PAL.woodDark);
+      bridge(b, 0.9, -1.65, -0.95, 0.75, 0.5);
+      b.box(-0.15, 0.15, 1.25, 1.62, -1.5, -1.2, PAL.funnel).box(-0.16, 0.16, 1.4, 1.48, -1.51, -1.19, PAL.band);
+      b.box(-0.03, 0.03, 0.5, 1.4, 1.2, 1.26, PAL.steel);
+    } else if (type === 'bunker') {
+      hull(b, 1.0, 3.0, 0.45, PAL.hullRed, PAL.hullBlack);
+      b.box(-0.38, 0.38, 0.45, 0.88, -0.45, 0.95, PAL.tank).box(-0.4, 0.4, 0.62, 0.7, -0.47, 0.97, PAL.band);
+      b.box(0.38, 0.5, 0.5, 0.56, -0.2, 0.7, PAL.steel);
+      bridge(b, 0.85, -1.45, -0.8, 0.7, 0.45);
+      b.box(-0.13, 0.13, 1.15, 1.45, -1.3, -1.05, PAL.funnel);
+    } else {
+      const c = type === 'bulk' ? PAL.hullBlack : type === 'feeder' ? PAL.hullBlue : PAL.hullDeep;
+      hull(b, 1.3, type === 'bulk' ? 5.0 : 5.2, 0.62, c, PAL.bottom);
+      b.box(-0.66, 0.66, 0.5, 0.56, -2.4, 1.95, PAL.hullWhite);
+      if (type === 'bulk') for (let k = 0; k < 5; k++) b.box(-0.48, 0.48, 0.62, 0.76, -1.25 + k * 0.72, -0.7 + k * 0.72, PAL.roofRed2);
+      if (type === 'feeder') { const cs = [PAL.crateC, PAL.crateB, PAL.crateE, PAL.crateD, PAL.roofBlue, PAL.awn1]; let n = 0;
+        for (let z = -1.3; z < 1.8; z += 0.64) for (const [x0, x1] of [[-0.55, -0.02], [0.02, 0.55]]) for (let t = 0; t < 2; t++) b.box(x0, x1, 0.62 + t * 0.3, 0.9 + t * 0.3, z, z + 0.6, cs[(n++ * 7) % cs.length]); }
+      if (type === 'tanker') { b.box(-0.06, 0.06, 0.62, 0.74, -1.5, 2.0, PAL.steel).box(-0.36, -0.28, 0.62, 0.7, -1.5, 2.0, PAL.steel).box(0.28, 0.36, 0.62, 0.7, -1.5, 2.0, PAL.steel).box(-0.5, 0.5, 0.62, 0.8, 0.2, 0.4, PAL.crane2); }
+      bridge(b, 1.1, -2.45, -1.6, 1.05, 0.62);
+      b.box(-0.18, 0.18, 1.67, 2.1, -2.3, -1.95, PAL.funnel).box(-0.19, 0.19, 1.85, 1.95, -2.31, -1.94, PAL.band);
+    }
+    return (SHIPGEO[type] = b.build());
+  }
+
+  /* ---------- props ---------- */
+  function tree(b, x, z, s, r) { b.box(x - 0.14, x + 0.14, 0, 0.7 * s, z - 0.14, z + 0.14, PAL.trunk); const lc = r < 0.33 ? PAL.leaf : r < 0.66 ? PAL.leaf2 : PAL.leaf3; b.box(x - 0.6 * s, x + 0.6 * s, 0.6 * s, 1.55 * s, z - 0.6 * s, z + 0.6 * s, lc); b.box(x - 0.38 * s, x + 0.38 * s, 1.55 * s, 2.0 * s, z - 0.38 * s, z + 0.38 * s, PAL.leaf3); }
+  function pine(b, x, z, s) { b.box(x - 0.12, x + 0.12, 0, 0.5 * s, z - 0.12, z + 0.12, PAL.trunk); [[0.6, 0.45], [0.45, 1.0], [0.28, 1.5]].forEach(([w, y], i) => b.box(x - w * s, x + w * s, y * s, (y + 0.6) * s, z - w * s, z + w * s, i % 2 ? PAL.pine2 : PAL.pine)); }
+  function heap(b, cx, cz, r, c, c2) { for (let k = 0; k < 4; k++) b.box(cx - r + k * 0.3, cx + r - k * 0.3, k * 0.28, (k + 1) * 0.28, cz - r * 0.7 + k * 0.22, cz + r * 0.7 - k * 0.22, k % 2 ? c2 : c); }
+  function prodProp(b, glow, g, x0, z0, R) {
+    const cx = x0 + 2.5, cz = z0 + 2;
+    if (g === 'rice') for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) { b.box(x0 + i, x0 + i + 0.96, 0, 0.04, z0 + j, z0 + j + 0.96, PAL.paddy); for (let a = 0; a < 3; a++) for (let c = 0; c < 3; c++) b.box(x0 + i + 0.15 + a * 0.3, x0 + i + 0.24 + a * 0.3, 0.04, 0.42, z0 + j + 0.15 + c * 0.3, z0 + j + 0.24 + c * 0.3, (i + j) % 2 ? PAL.wheat : '#c9d066'); }
+    else if (g === 'salt') { for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) { b.box(x0 + i, x0 + i + 1, 0, 0.06, z0 + j, z0 + j + 1, PAL.stone2); b.box(x0 + i + 0.08, x0 + i + 0.92, 0.06, 0.08, z0 + j + 0.08, z0 + j + 0.92, (i + j) % 2 ? PAL.saltWater : PAL.salt); } heap(b, x0 + 1.2, z0 + 3.4, 0.9, PAL.salt, '#e6ebe8'); heap(b, x0 + 3.6, z0 + 3.4, 0.8, PAL.salt, '#e6ebe8'); }
+    else if (g === 'wood') { for (let row = 0; row < 3; row++) for (let k = 0; k < 4 - row; k++) b.box(x0 + 0.5, x0 + 3.6, row * 0.38, row * 0.38 + 0.36, z0 + 0.8 + k * 0.4 + row * 0.2, z0 + 1.16 + k * 0.4 + row * 0.2, (k + row) % 2 ? PAL.trunk : PAL.wood); pine(b, x0 + 4.4, z0 + 0.8, 1.2); pine(b, x0 + 4.2, z0 + 3.2, 1.0); }
+    else if (g === 'fish') { for (let r = 0; r < 2; r++) { const z = z0 + 1 + r * 1.8; b.box(x0 + 0.5, x0 + 0.6, 0, 1.2, z, z + 0.1, PAL.post).box(x0 + 4.2, x0 + 4.3, 0, 1.2, z, z + 0.1, PAL.post).box(x0 + 0.5, x0 + 4.3, 1.15, 1.22, z, z + 0.1, PAL.wood); for (let k = 0; k < 8; k++) b.box(x0 + 0.8 + k * 0.42, x0 + 0.98 + k * 0.42, 0.6, 1.12, z + 0.02, z + 0.08, PAL.fish); } }
+    else if (g === 'goods') { const cs = [PAL.crateA, PAL.crateB, PAL.crateC, PAL.crateD, PAL.crateE]; for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { const hgt = 1 + Math.floor(R() * 3); for (let t = 0; t < hgt; t++) b.box(x0 + 0.3 + i * 1.1, x0 + 1.2 + i * 1.1, t * 0.7, t * 0.7 + 0.68, z0 + 0.3 + j * 1.2, z0 + 1.3 + j * 1.2, cs[Math.floor(R() * cs.length)]); } }
+    else if (g === 'cement') { for (const dx of [1, 3.2]) { b.box(x0 + dx - 0.8, x0 + dx + 0.8, 0, 3.4, cz - 0.8, cz + 0.8, PAL.cement).box(x0 + dx - 0.55, x0 + dx + 0.55, 3.4, 3.8, cz - 0.55, cz + 0.55, PAL.stone2).box(x0 + dx - 0.82, x0 + dx + 0.82, 2.2, 2.35, cz - 0.82, cz + 0.82, PAL.steel); } b.box(x0 + 1, x0 + 3.2, 3.0, 3.2, cz - 0.15, cz + 0.15, PAL.steel); }
+    else if (g === 'coal') { heap(b, cx - 1, cz, 1.4, PAL.coal, '#3d4043'); heap(b, cx + 1.4, cz + 0.5, 1.0, PAL.coal, '#3d4043'); }
+    else if (g === 'ore') { heap(b, cx - 1, cz, 1.4, PAL.ore, '#8c4532'); heap(b, cx + 1.4, cz + 0.4, 1.0, PAL.ore, '#8c4532'); }
+    else if (g === 'fuel') for (const dx of [1.2, 3.8]) { b.box(x0 + dx - 1, x0 + dx + 1, 0, 1.7, cz - 0.6, cz + 0.6, PAL.tank).box(x0 + dx - 0.6, x0 + dx + 0.6, 0, 1.7, cz - 1, cz + 1, PAL.tank).box(x0 + dx - 1.02, x0 + dx + 1.02, 1.05, 1.25, cz - 0.62, cz + 0.62, PAL.band).box(x0 + dx - 0.62, x0 + dx + 0.62, 1.05, 1.25, cz - 1.02, cz + 1.02, PAL.band).box(x0 + dx - 0.5, x0 + dx + 0.5, 1.7, 1.85, cz - 0.5, cz + 0.5, PAL.stone); }
+  }
+  function lamp(b, glow, x, z) { b.box(x - 0.06, x + 0.06, 0, 1.3, z - 0.06, z + 0.06, PAL.post).box(x - 0.17, x + 0.17, 1.62, 1.7, z - 0.17, z + 0.17, PAL.post); glow.box(x - 0.13, x + 0.13, 1.3, 1.62, z - 0.13, z + 0.13, PAL.lamp); }
+
+  /* ---------- clickable buildings (own mesh each) ---------- */
+  function market(x, z) { const b = new VB().at(x, 0, z);
+    b.box(-2.4, 2.4, 0, 1.8, -1.8, 1.8, PAL.wall).box(-2.42, 2.42, 0, 0.25, -1.82, 1.82, PAL.stone2);
+    b.box(-0.45, 0.45, 0, 1.15, 1.8, 1.86, PAL.door);
+    for (const wx of [-1.6, 1.6]) b.box(wx - 0.4, wx + 0.4, 0.75, 1.3, 1.8, 1.86, PAL.window);
+    for (let k = 0; k < 5; k++) b.box(-2.65, 2.65, 1.8 + k * 0.24, 2.04 + k * 0.24, -2.0 + k * 0.42, 2.0 - k * 0.42, k % 2 ? PAL.roofRed : PAL.roofRed2);
+    for (let s = 0; s < 8; s++) b.box(-2.4 + s * 0.6, -1.8 + s * 0.6, 1.25, 1.36, 1.86, 2.55, s % 2 ? PAL.awn1 : PAL.awn2);
+    b.box(1.3, 2.1, 0, 0.55, 2.1, 2.7, PAL.crateA).box(-2.1, -1.4, 0, 0.45, 2.2, 2.7, PAL.crateD).box(-2.0, -1.5, 0.45, 0.62, 2.25, 2.65, PAL.wheat);
+    return b; }
+  function office(x, z) { const b = new VB().at(x, 0, z);
+    b.box(-1.6, 1.6, 0, 2.8, -1.5, 1.5, PAL.wall2).box(-1.65, 1.65, 1.35, 1.45, -1.55, 1.55, PAL.stone2);
+    for (const y of [0.55, 1.85]) for (const wx of [-1.05, 0, 1.05]) if (!(y < 1 && wx === 0)) b.box(wx - 0.27, wx + 0.27, y, y + 0.55, 1.5, 1.56, PAL.window);
+    b.box(-0.35, 0.35, 0, 1.15, 1.5, 1.56, PAL.door);
+    b.box(-1.75, 1.75, 2.8, 3.0, -1.65, 1.65, PAL.roofBlue).box(-1.35, 1.35, 3.0, 3.25, -1.25, 1.25, PAL.roofBlue2);
+    b.box(1.15, 1.21, 3.0, 4.6, 1.0, 1.06, PAL.steel).box(1.21, 1.95, 4.05, 4.5, 1.02, 1.05, PAL.flag);
+    b.box(-1.0, 1.0, 1.5, 1.88, 1.56, 1.62, PAL.woodDark);
+    return b; }
+  function warehouse(b, x, z) { b.at(x, 0, z); b.box(-1.15, 1.15, 0, 1.6, -1.5, 1.5, PAL.stone).box(-0.6, 0.6, 0, 1.1, 1.5, 1.55, PAL.steel);
+    for (let k = 0; k < 3; k++) b.box(-1.3 + k * 0.38, 1.3 - k * 0.38, 1.6 + k * 0.2, 1.8 + k * 0.2, -1.62, 1.62, k % 2 ? PAL.roofGray : PAL.roofGray2); b.at(0, 0, 0); }
+  function hut(b, x, z) { b.at(x, 0, z); b.box(-1, 1, 0, 1.1, -0.8, 0.8, PAL.wall).box(-0.25, 0.25, 0, 0.8, 0.8, 0.85, PAL.door); for (let k = 0; k < 3; k++) b.box(-1.2 + k * 0.3, 1.2 - k * 0.3, 1.1 + k * 0.22, 1.32 + k * 0.22, -1.0 + k * 0.28, 1.0 - k * 0.28, k % 2 ? PAL.thatch2 : PAL.thatch); b.at(0, 0, 0); }
+  function shipyard(x, z, glow) { const b = new VB().at(x, 0, z);
+    b.box(-1.9, 1.9, -0.7, 0.02, -1.0, 6.0, PAL.stone2);
+    b.box(-0.1, 0.1, 0.02, 0.22, -0.2, 4.4, PAL.steel);
+    for (let k = 0; k < 7; k++) { const zz = k * 0.64; b.box(-0.75, 0.75, 0.02, 0.16, zz, zz + 0.12, PAL.steel).box(-0.75, -0.62, 0.02, 1.1, zz, zz + 0.12, PAL.steel).box(0.62, 0.75, 0.02, 1.1, zz, zz + 0.12, PAL.steel); }
+    b.box(-0.77, 0.77, 0.02, 0.45, 0, 2.2, PAL.bottom);
+    for (const sx of [-1, 1]) { b.box(sx * 1.75 - 0.15, sx * 1.75 + 0.15, 0.02, 4.6, -0.8, -0.5, PAL.crane).box(sx * 1.75 - 0.15, sx * 1.75 + 0.15, 0.02, 4.6, 4.3, 4.6, PAL.crane).box(sx * 1.75 - 0.18, sx * 1.75 + 0.18, 4.6, 4.9, -0.9, 4.7, PAL.crane); }
+    b.box(-1.95, 1.95, 4.6, 5.0, 1.6, 2.0, PAL.crane2).box(-0.4, 0.4, 4.2, 4.6, 1.5, 2.1, PAL.bridge).box(-0.03, 0.03, 2.0, 4.2, 1.77, 1.83, PAL.steel);
+    return b; }
+  function lighthouse(b, glow, x, z) { b.at(x, 0, z); b.box(-0.8, 0.8, 0, 0.4, -0.8, 0.8, PAL.stone); for (let k = 0; k < 6; k++) b.box(-0.5 + k * 0.02, 0.5 - k * 0.02, 0.4 + k * 0.55, 0.95 + k * 0.55, -0.5 + k * 0.02, 0.5 - k * 0.02, k % 2 ? PAL.lhRed : PAL.lhWhite); b.box(-0.6, 0.6, 4.2, 4.45, -0.6, 0.6, PAL.lhRed).box(-0.3, 0.3, 4.45, 4.75, -0.3, 0.3, PAL.lhRed); b.at(0, 0, 0); glow.at(x, 0, z).box(-0.4, 0.4, 3.7, 4.2, -0.4, 0.4, PAL.light); glow.at(0, 0, 0); }
+  function gantry(b, px) { const z0 = 2.2; b.box(px - 1.25, px - 1.0, 0, 3.2, z0, z0 + 0.25, PAL.crane).box(px + 1.0, px + 1.25, 0, 3.2, z0, z0 + 0.25, PAL.crane).box(px - 1.25, px - 1.0, 0, 3.2, z0 + 2.2, z0 + 2.45, PAL.crane).box(px + 1.0, px + 1.25, 0, 3.2, z0 + 2.2, z0 + 2.45, PAL.crane);
+    b.box(px - 1.35, px + 1.35, 3.2, 3.6, z0 - 0.1, z0 + 2.55, PAL.crane).box(px - 0.15, px + 0.15, 3.35, 3.6, z0 + 2.55, z0 + 6.0, PAL.crane2).box(px - 0.4, px + 0.4, 2.7, 3.2, z0 + 0.9, z0 + 1.6, PAL.bridge); }
+
+  /* ---------- villagers ---------- */
+  function villagerGeo(r) { const b = new VB(), cl = PAL.cloth[Math.floor(r() * PAL.cloth.length)], hair = [PAL.hair1, PAL.hair2, PAL.hair3][Math.floor(r() * 3)];
+    b.box(-0.13, -0.02, 0, 0.36, -0.07, 0.07, PAL.pants).box(0.02, 0.13, 0, 0.36, -0.07, 0.07, PAL.pants);
+    b.box(-0.17, 0.17, 0.36, 0.76, -0.11, 0.11, cl).box(-0.24, -0.17, 0.42, 0.72, -0.06, 0.06, cl).box(0.17, 0.24, 0.42, 0.72, -0.06, 0.06, cl);
+    b.box(-0.15, 0.15, 0.76, 1.05, -0.14, 0.14, PAL.skin).box(-0.16, 0.16, 0.98, 1.1, -0.15, 0.15, hair).box(-0.16, 0.16, 0.8, 1.0, -0.15, -0.1, hair);
+    b.box(-0.08, -0.03, 0.88, 0.94, 0.14, 0.15, '#2b2420').box(0.03, 0.08, 0.88, 0.94, 0.14, 0.15, '#2b2420');
+    return b.build(); }
+
+  /* ---------- scene ---------- */
+  let renderer, scene, camera, hemi, sun, box, canvas, overlay, chip, more;
+  let world = null, shipLayer = null, sig = '', shipSig = '', visible = false, yaw = Math.PI / 4, zoom = 1, clock = 0;
+  let picks = [], npcs = [], boats = [], clouds = [], moving = [], slots = [], labels = [], bubbles = [], marker = null, hover = null, layout = null;
+  let onPick = () => {};
+
+  function isDark() { const a = document.documentElement.getAttribute('data-theme'); if (a) return a === 'dark'; return matchMedia('(prefers-color-scheme: dark)').matches; }
+  function setLights() {
+    const d = isDark();
+    hemi.color.set(d ? 0x6b7fa8 : 0xeaf6ff); hemi.groundColor.set(d ? 0x2a3340 : 0xa8bd8f); hemi.intensity = d ? 0.55 : 0.78;
+    sun.color.set(d ? 0xa9bce6 : 0xfff3dc); sun.intensity = d ? 0.32 : 0.6;
+  }
+  function init(container, cb) {
+    box = container; onPick = cb;
+    canvas = document.createElement('canvas'); canvas.className = 'p3c'; box.appendChild(canvas);
+    overlay = document.createElement('div'); overlay.className = 'p3o'; box.appendChild(overlay);
+    chip = document.createElement('div'); chip.className = 'p3chip'; box.appendChild(chip);
+    more = document.createElement('div'); more.className = 'p3more'; more.hidden = true; box.appendChild(more);
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch (e) { return false; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+    hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1); scene.add(hemi);
+    sun = new THREE.DirectionalLight(0xffffff, 1); sun.position.set(-14, 30, 12); sun.castShadow = true;
+    const mobile = Math.min(screen.width, screen.height) < 700;
+    sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
+    Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 90 });
+    sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.03; scene.add(sun);
+    setLights();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', setLights);
+    new MutationObserver(setLights).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    const cl = new VB(); [[0, 0, 0, 1.6, 0.8, 1.1], [1.2, 0.3, 0.2, 1.1, 0.6, 0.9], [-1.1, 0.1, 0.3, 0.9, 0.5, 0.8]].forEach(([x, y, z, w, h, d]) => cl.box(x - w, x + w, y, y + h, z - d, z + d, PAL.cloud));
+    const cg = cl.build();
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(cg, matGlow); m.position.set(-14 + i * 11, 10 + i * 1.2, -8 + i * 6); m.userData.v = 0.5 + i * 0.25; scene.add(m); clouds.push(m); }
+    new ResizeObserver(resize).observe(box);
+    bindInput();
+    resize();
+    return true;
+  }
+  function resize() {
+    if (!renderer) return;
+    const w = box.clientWidth, h = box.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    const aspect = w / h, fitW = w < 600 ? 25 : 31, fitH = 22, hh = Math.max(fitH, fitW / aspect);
+    Object.assign(camera, { left: -hh * aspect / 2, right: hh * aspect / 2, top: hh / 2, bottom: -hh / 2 });
+    camera.updateProjectionMatrix(); placeCamera();
+  }
+  function placeCamera() {
+    const p = THREE.MathUtils.degToRad(34), d = 80, tx = 0, ty = -0.5, tz = 1.5;
+    camera.position.set(tx + Math.sin(yaw) * Math.cos(p) * d, ty + Math.sin(p) * d, tz + Math.cos(yaw) * Math.cos(p) * d);
+    camera.zoom = zoom; camera.lookAt(tx, ty, tz); camera.updateProjectionMatrix();
+  }
+  function pureRiver(pid) { return (ADJ[pid] || []).every(e => e.t === 'r'); }
+  function isYard(pid) { return !S ? pid === 'mapo' : pid === S.home || pid === 'busan' || pid === 'incheon'; }
+
+  function buildWorld(pid) {
+    if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && !Object.values(SHIPGEO).includes(o.geometry)) o.geometry.dispose(); }); }
+    world = new THREE.Group(); picks = picks.filter(p => p.userData.kind === 'ship'); npcs = []; boats = []; labels = [];
+    const P = PORTS[pid], R = rng(pid), river = pureRiver(pid), era = S ? S.era : 1;
+    const land = new VB(), glow = new VB(), wat = new VB();
+    const isWater = j => river ? j >= 2 && j < 8 : j >= 2;
+    for (let i = -12; i < 12; i++) for (let j = -12; j < 12; j++) {
+      const edge = i === -12 || i === 11 || j === -12 || j === 11;
+      if (Math.abs(i + 0.5) > 10.5 && Math.abs(j + 0.5) > 10.5 && R() < 0.65) continue;
+      const bot = -2.2 - R() * (edge ? 1.6 : 0.8);
+      if (isWater(j)) {
+        land.box(i, i + 1, bot, -1.6, j, j + 1, (i + j) % 3 ? PAL.dirt2 : PAL.dirt3, true);
+        land.box(i, i + 1, -1.6, -1.45, j, j + 1, PAL.bed);
+        wat.box(i, i + 1, -1.45, -0.32, j, j + 1, river ? PAL.river : PAL.sea);
+        continue;
+      }
+      land.box(i, i + 1, bot, -0.9, j, j + 1, (i * 7 + j) % 4 ? PAL.dirt2 : PAL.dirt3, true);
+      land.box(i, i + 1, -0.9, -0.25, j, j + 1, PAL.dirt);
+      let top = R() < 0.82 ? PAL.grass : R() < 0.5 ? PAL.grass2 : PAL.grass3, h = 0;
+      if (j === 0) top = PAL.path;
+      if (j === 1 || (river && j === 8)) { top = PAL.stone; h = 0.06; }
+      land.box(i, i + 1, -0.25, h, j, j + 1, top);
+    }
+    // piers + slots
+    const np = river ? (P.size >= 3 ? 2 : 1) : Math.min(3, P.size);
+    const yard = isYard(pid) && !river;
+    const xs = np === 1 ? [0] : np === 2 ? (yard ? [-6, 0] : [-5, 4]) : (yard ? [-8, -3, 2] : [-7, 0, 7]);
+    const L = river ? 3.4 : Math.min(8.5, 4.5 + P.size * 1.2);
+    slots = [];
+    const wood = river || P.size <= 2;
+    for (const px of xs) {
+      land.box(px - 0.75, px + 0.75, -0.14, 0.05, 2, 2 + L, wood ? PAL.plank : PAL.stone);
+      if (wood) for (let z = 2.5; z < 2 + L; z += 1.2) { land.box(px - 0.8, px - 0.62, -1.45, 0.12, z, z + 0.18, PAL.post); land.box(px + 0.62, px + 0.8, -1.45, 0.12, z, z + 0.18, PAL.post); }
+      else land.box(px - 0.75, px + 0.75, -1.45, -0.14, 2, 2 + L, PAL.stone2);
+      for (const side of [-1, 1]) slots.push({ x: px + side * 1.45, z: 2.3, zMax: 2 + L + 0.6 });
+    }
+    // bollards + lamps along the quay
+    for (let x = -11; x <= 11; x += 2.2) land.box(x - 0.1, x + 0.1, 0.06, 0.3, 1.75, 1.95, PAL.post);
+    for (const x of [-10.5, -5.5, -0.5, 4.5, 9.5]) lamp(land, glow, x, 1.45);
+    // back row: production + warehouses
+    const prods = S ? P.prod.filter(goodOpen) : P.prod.filter(g => GOODS[g].era === 1);
+    prods.slice(0, 2).forEach((g, k) => prodProp(land, glow, g, k ? -5 : -11, -11, R));
+    for (let k = 0; k < Math.min(4, P.size); k++) warehouse(land, 2 + k * 2.75, -9.2);
+    // trees in free corners
+    for (let k = 0; k < 9; k++) { const x = -11 + R() * 22, z = -6.8 + R() * 1.2; if (Math.abs(x + 7.5) > 3.2 && Math.abs(x + 1.5) > 2.4 && Math.abs(x - 4.5) > 2.4) tree(land, x, z, 0.8 + R() * 0.4, R()); }
+    if (river) { for (let i = -11; i < 11; i += 0.8 + R()) { if (R() < 0.45) tree(land, i, 9.5 + R() * 1.6, 0.8 + R() * 0.4, R()); else for (let r = 0; r < 4; r++) land.box(i + r * 0.12, i + r * 0.12 + 0.06, 0.06, 0.5 + R() * 0.4, 8.2 + R() * 0.5, 8.28 + R() * 0.5, PAL.reed); } hut(land, -7, 10); hut(land, 5, 10.2); }
+    if (P.tour) lighthouse(land, glow, 10.2, -2.6);
+    if (!river && era >= 2 && (P.traffic || 0) >= 2) gantry(land, xs[xs.length - 1]);
+    if (era >= 3 && (P.traffic || 0) >= 2) { const cs = [PAL.crateC, PAL.crateB, PAL.crateE, PAL.crateD]; for (let i = 0; i < 4; i++) for (let t = 0; t < 2; t++) land.box(-11 + i * 1.3, -9.9 + i * 1.3, t * 0.55, t * 0.55 + 0.53, -3.4, -1.6, cs[(i + t) % 4]); }
+    world.add(mesh(land)); if (!glow.empty) world.add(mesh(glow, matGlow, false));
+    const wm = mesh(wat, matWater, false); wm.name = 'water'; world.add(wm);
+    // clickable buildings
+    const add = (vb, kind, tab, label, pos) => { const m = mesh(vb); m.userData = { kind, tab }; world.add(m); picks.push(m); labels.push({ text: label, pos: new THREE.Vector3(...pos), tab }); return m; };
+    add(market(-7.5, -3.6), 'tab', 'port', '거래소', [-7.5, 3.4, -3.6]);
+    add(office(-1.5, -3.8), 'tab', 'cons', '해운 계약소', [-1.5, 3.7, -3.8]);
+    if (yard) add(shipyard(9.2, 0.4), 'tab', 'yard', '조선소', [9.2, 5.6, 2.5]);
+    else { const w2 = new VB(); warehouse(w2, 4.5, -3.6); add(w2, 'tab', 'yard', '조선소 사무소', [4.5, 2.6, -3.6]); }
+    // villagers walking the quay road
+    const doors = [[-7.5, -1.2], [-1.5, -1.6], [4.5, -1.4]], road = 0.5;
+    for (let k = 0; k < 6; k++) {
+      const r = rng(pid + k), m = new THREE.Mesh(villagerGeo(r), matVox); m.castShadow = true; m.scale.setScalar(1.15);
+      m.userData = { kind: 'npc' }; picks.push(m); world.add(m);
+      const d = doors[k % 3], px = xs[k % xs.length];
+      const path = [[d[0], d[1]], [d[0], road], [px, road], [px, 2 + Math.min(L, 4) - 0.5], [px, road], [-11 + r() * 22, road]];
+      const pos = path[0];
+      m.position.set(pos[0], 0.06, pos[1]);
+      npcs.push({ m, path, i: 1, wait: r() * 3, speed: 1.1 + r() * 0.6, line: null });
+    }
+    // passing traffic in the distance
+    const lane = river ? 6.6 : 11.2;
+    for (let k = 0; k < (river ? 1 : 2); k++) { const m = new THREE.Mesh(shipGeo(k ? 'fishing' : (river ? 'raft' : 'hwangpo')), matVox); m.castShadow = true; m.rotation.y = Math.PI / 2; m.position.set(-14 + k * 15, -0.32, lane - k * 0.6); m.userData.v = 1.2 + k * 0.5; world.add(m); boats.push(m); }
+    scene.add(world);
+    layout = { xs, L, river, lane };
+    chip.innerHTML = `<b>${P.name}</b> ${river ? '나루' : '항구'} · 드래그로 회전 · 배와 건물을 누르면 열려요`;
+  }
+
+  function shipsHere(pid) {
+    if (!S) return { docked: [{ id: -1, type: 'raft' }, { id: -2, type: 'hwangpo' }, { id: -3, type: 'fishing' }], fishing: [], move: [] };
+    const docked = [], fishing = [], move = [];
+    for (const sh of S.ships) {
+      if (sh.loc === pid && !sh.voy) (sh.mode === 'fishing' ? fishing : docked).push(sh);
+      else if (sh.voy && (sh.voy.from === pid || sh.voy.to === pid)) move.push(sh);
+    }
+    return { docked, fishing, move };
+  }
+  function buildShips(pid) {
+    if (shipLayer) scene.remove(shipLayer);
+    shipLayer = new THREE.Group(); picks = picks.filter(p => p.userData.kind !== 'ship'); moving = [];
+    const { docked, fishing, move } = shipsHere(pid);
+    const fill = slots.map(s => s.z);
+    let shown = 0;
+    const place = (sh, slotIdx) => {
+      const len = SHIPLEN[sh.type], s = slots[slotIdx];
+      const m = new THREE.Mesh(shipGeo(sh.type), matVox); m.castShadow = true; m.receiveShadow = true;
+      m.position.set(s.x, -0.32, fill[slotIdx] + len / 2); fill[slotIdx] += len + 0.35;
+      m.userData = { kind: 'ship', id: sh.id, name: sh.name || SHIPS[sh.type].name, bob: Math.random() * 6 };
+      shipLayer.add(m); picks.push(m); return m;
+    };
+    for (const sh of docked) {
+      const len = SHIPLEN[sh.type];
+      let best = -1; for (let k = 0; k < slots.length; k++) if (fill[k] + len <= slots[k].zMax && (best < 0 || fill[k] < fill[best])) best = k;
+      if (best < 0) continue;
+      place(sh, best); shown++;
+    }
+    fishing.forEach((sh, k) => { const m = new THREE.Mesh(shipGeo(sh.type), matVox); m.castShadow = true; m.position.set(-9 + k * 2.4, -0.32, layout.lane - 1.4); m.rotation.y = 0.4; m.userData = { kind: 'ship', id: sh.id, name: sh.name, bob: k }; shipLayer.add(m); picks.push(m); });
+    for (const sh of move) { const m = new THREE.Mesh(shipGeo(sh.type), matVox); m.castShadow = true; m.userData = { kind: 'ship', id: sh.id, name: sh.name, bob: 0 }; m.visible = false; shipLayer.add(m); picks.push(m); moving.push({ m, sh, x: layout.xs[0] + 1.45 * (sh.id % 2 ? 1 : -1) }); }
+    const extra = docked.length - shown;
+    more.hidden = extra <= 0; more.textContent = `+ ${extra}척 더 정박 중`;
+    marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.32), new THREE.MeshBasicMaterial({ color: PAL.mark })); marker.visible = false; shipLayer.add(marker);
+    scene.add(shipLayer);
+  }
+
+  function sync() {
+    if (!visible || !renderer) return;
+    const pid = (S && UI.port) || (S ? S.home : 'mapo');
+    const s1 = `${pid}|${S ? S.era : 0}|${S ? S.home : ''}`;
+    if (s1 !== sig) { sig = s1; buildWorld(pid); shipSig = ''; }
+    const h = shipsHere(pid), s2 = [...h.docked.map(s => s.id + 'd'), ...h.fishing.map(s => s.id + 'f'), ...h.move.map(s => s.id + 'm' + s.voy.dep)].join(',');
+    if (s2 !== shipSig) { shipSig = s2; buildShips(pid); }
+    renderLabels(pid);
+  }
+  function renderLabels(pid) {
+    const nCon = S ? S.contracts.filter(c => c.from === pid).length : 0;
+    let h = labels.map((l, i) => `<button class="p3lab" data-act="p3tab" data-t="${l.tab}" data-i="${i}">${l.text}${l.tab === 'cons' && nCon ? ` <span class="bang">${nCon}</span>` : ''}</button>`).join('');
+    h += `<div class="p3tag" id="p3tag" hidden></div>`;
+    h += npcs.map((n, i) => `<div class="p3bub" data-n="${i}" hidden></div>`).join('');
+    overlay.innerHTML = h;
+  }
+
+  /* ---------- input ---------- */
+  function bindInput() {
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+    let down = null, drag = false;
+    const hit = ev => { const r = canvas.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); const x = ray.intersectObjects(picks, false)[0]; return x ? x.object : null; };
+    canvas.addEventListener('pointerdown', ev => { down = { x: ev.clientX, y: ev.clientY, yaw }; drag = false; canvas.setPointerCapture(ev.pointerId); });
+    canvas.addEventListener('pointermove', ev => {
+      if (down) { const dx = ev.clientX - down.x; if (Math.abs(dx) > 5 || Math.abs(ev.clientY - down.y) > 5) drag = true; if (drag) { yaw = down.yaw - dx * 0.008; placeCamera(); } return; }
+      const o = hit(ev); hover = o; canvas.style.cursor = o ? 'pointer' : 'grab';
+    });
+    canvas.addEventListener('pointerup', ev => {
+      const wasDrag = drag; down = null; drag = false;
+      if (wasDrag) return;
+      const o = hit(ev); if (!o) return;
+      const u = o.userData;
+      if (u.kind === 'npc') { const n = npcs.find(n => n.m === o); if (n) say(n, true); SND.play('click'); return; }
+      if (u.kind === 'ship' && u.id > 0) onPick('ship', u.id);
+      if (u.kind === 'tab') onPick('tab', u.tab);
+    });
+    canvas.addEventListener('wheel', ev => { ev.preventDefault(); zoom = THREE.MathUtils.clamp(zoom * (ev.deltaY < 0 ? 1.1 : 0.9), 0.7, 2.6); placeCamera(); }, { passive: false });
+  }
+
+  /* ---------- per-frame ---------- */
+  const tmp = new THREE.Vector3();
+  function screenOf(v) { tmp.copy(v).project(camera); return [(tmp.x + 1) / 2 * box.clientWidth, (1 - tmp.y) / 2 * box.clientHeight, tmp.z]; }
+  function say(n, force) { const lines = portHints((S && UI.port) || (S ? S.home : 'mapo')); n.line = lines[Math.floor(Math.random() * lines.length)]; n.until = clock + 5.5; }
+  function frame(dt) {
+    if (!visible || !renderer || !world) return;
+    clock += dt;
+    for (const c of clouds) { c.position.x += c.userData.v * dt * 0.6; if (c.position.x > 18) c.position.x = -18; }
+    for (const b of boats) { b.position.x += b.userData.v * dt; if (b.position.x > 15) b.position.x = -15; b.position.y = -0.32 + Math.sin(clock * 1.7 + b.userData.v) * 0.04; }
+    const w = world.getObjectByName('water'); if (w) w.position.y = Math.sin(clock * 0.9) * 0.02;
+    for (const n of npcs) {
+      if (n.wait > 0) { n.wait -= dt; continue; }
+      const [tx, tz] = n.path[n.i], p = n.m.position, dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+      if (d < 0.05) { n.i = (n.i + 1) % n.path.length; n.wait = Math.random() < 0.3 ? 1 + Math.random() * 2.5 : 0; continue; }
+      const st = Math.min(d, n.speed * dt); p.x += dx / d * st; p.z += dz / d * st; p.y = 0.06 + Math.abs(Math.sin(clock * 9)) * 0.05;
+      n.m.rotation.y = Math.atan2(dx, dz);
+    }
+    // speech: two villagers talk at a time
+    const talking = npcs.filter(n => n.line && n.until > clock);
+    if (talking.length < (box.clientWidth < 600 ? 1 : 2) && npcs.length && Math.random() < dt * 0.5) say(npcs[Math.floor(Math.random() * npcs.length)]);
+    if (shipLayer) for (const o of shipLayer.children) if (o.userData.kind === 'ship') { o.position.y = -0.32 + Math.sin(clock * 1.6 + o.userData.bob) * 0.04; o.rotation.z = Math.sin(clock * 1.3 + o.userData.bob) * 0.025; }
+    const here = sig.split('|')[0];
+    if (S) for (const mv of moving) {
+      const v = mv.sh.voy; if (!v) { mv.m.visible = false; continue; }
+      // f = 0 at the pier, 1 at the island edge: leaving ships run 0→1, arriving ships 1→0
+      const leaving = v.from === here, f = leaving ? (UI.t - v.dep) / 1.3 : (v.arr - UI.t) / 1.3;
+      if (f < 0 || f > 1) { mv.m.visible = false; continue; }
+      const z = 3 + f * 12; mv.m.visible = true; mv.m.position.set(mv.x, -0.32, z); mv.m.rotation.y = leaving ? 0 : Math.PI;
+      mv.m.scale.setScalar(1 - THREE.MathUtils.smoothstep(z, 10.5, 14.5));
+    }
+    const sel = shipLayer && shipLayer.children.find(o => o.userData.kind === 'ship' && o.userData.id === UI.ship && o.visible);
+    if (marker) { marker.visible = !!sel; if (sel) { marker.position.set(sel.position.x, sel.position.y + 2.6 + Math.sin(clock * 3) * 0.15, sel.position.z); marker.rotation.y += dt * 2; } }
+    renderer.render(scene, camera);
+    // overlay positions
+    const labs = overlay.querySelectorAll('.p3lab');
+    labs.forEach(el => { const l = labels[el.dataset.i]; const [x, y] = screenOf(l.pos); el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`; });
+    overlay.querySelectorAll('.p3bub').forEach(el => {
+      const n = npcs[el.dataset.n]; const on = n && n.line && n.until > clock;
+      if (!on) { el.hidden = true; return; }
+      tmp.set(n.m.position.x, n.m.position.y + 1.65, n.m.position.z); const [x, y] = screenOf(tmp);
+      el.hidden = false; if (el.textContent !== n.line) el.textContent = n.line;
+      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+    });
+    const tag = overlay.querySelector('#p3tag');
+    const tg = (hover && hover.userData.kind === 'ship' && hover) || sel;
+    if (tag) { if (tg) { tmp.set(tg.position.x, tg.position.y + 1.9, tg.position.z); const [x, y] = screenOf(tmp); tag.hidden = false; tag.textContent = tg.userData.name; tag.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`; } else tag.hidden = true; }
+  }
+  function show() { visible = true; box.hidden = false; resize(); sync(); }
+  function hide() { visible = false; box.hidden = true; }
+  return { ok: true, init, show, hide, sync, frame };
+})();
+
 /* ================= PANELS ================= */
 function renderTop() {
   $('#coName').textContent = S.name;
@@ -759,6 +1268,9 @@ function renderTop() {
   $('#bPlay').textContent = UI.playing ? '❚❚' : '▶';
   $('#bPlay').classList.toggle('on', UI.playing);
   $('#bSpeed').textContent = UI.speed + '×';
+  $('#vP3').classList.toggle('on', UI.view === 'port3d');
+  $('#vP3').hidden = !P3.ok;
+  $('#bSnd').classList.toggle('on', SND.on);
   $('#vKr').classList.toggle('on', UI.view === 'kr');
   $('#vNea').classList.toggle('on', UI.view === 'nea');
   for (const b of document.querySelectorAll('#tabs button')) {
@@ -952,7 +1464,7 @@ function renderPanel() {
   else h = rankPanel();
   p.innerHTML = h;
 }
-function render() { renderTop(); renderPanel(); drawBadges(); drawShips(); }
+function render() { renderTop(); renderPanel(); if (UI.view !== 'port3d') { drawBadges(); drawShips(); } P3.sync(); }
 
 /* ================= MODALS ================= */
 function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="mbox">${html}</div>`; m.hidden = false; }
@@ -992,7 +1504,8 @@ function frame(ts) {
     if (!UI.playing) UI.t = Math.min(UI.t, S.day + 0.999);
     if (ticked) render();
   }
-  if (S) drawShips();
+  if (S && UI.view !== 'port3d') drawShips();
+  P3.frame(dt);
   requestAnimationFrame(frame);
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
@@ -1014,6 +1527,8 @@ document.addEventListener('click', ev => {
     case 'speed': UI.speed = SPEEDS[(SPEEDS.indexOf(UI.speed) + 1) % SPEEDS.length]; break;
     case 'step': setPlaying(false); tick(); UI.t = S.day; break;
     case 'view': UI.view = el.dataset.v; drawMap(); break;
+    case 'p3tab': UI.tab = el.dataset.t; UI.ship = null; UI.confirm = null; scrollToPanel(); SND.play('click'); break;
+    case 'snd': SND.on = !SND.on; try { localStorage.setItem('shipking-snd', SND.on ? '1' : '0'); } catch (e) {} if (SND.on) SND.play('click'); break;
     case 'tab': UI.tab = el.dataset.t; UI.confirm = null; if (UI.tab === 'fleet') UI.ship = null; window.scrollTo({ top: 0 }); break;
     case 'ship': UI.ship = id; UI.tab = 'fleet'; UI.confirm = null; if (sh && sh.loc) UI.port = sh.loc; break;
     case 'back': UI.ship = null; UI.confirm = null; break;
@@ -1044,9 +1559,19 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 document.addEventListener('visibilitychange', () => { if (document.hidden && S) { save(); setPlaying(false); } });
 document.addEventListener('keydown', ev => { if (ev.code === 'Space' && S && $('#modal').hidden && !/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) { ev.preventDefault(); setPlaying(!UI.playing); } });
 
+function scrollToPanel() {
+  if (window.innerWidth < 960) $('#tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+let p3Ready = false;
 function start(data) {
+  p3Ready = P3.ok && P3.init($('#p3'), (kind, v) => {
+    if (kind === 'ship') { UI.ship = v; UI.tab = 'fleet'; UI.confirm = null; SND.play('click'); }
+    if (kind === 'tab') { UI.tab = v; UI.ship = null; UI.confirm = null; SND.play('click'); }
+    render(); scrollToPanel();
+  });
+  if (!p3Ready && UI.view === 'port3d') UI.view = 'kr';
   if (data && data.S) { S = data.S; Object.assign(UI, data.UI || {}); UI.playing = false; drawMap(); render(); }
-  else startModal(!!loadSave());
+  else { if (p3Ready) { $('#map').style.visibility = 'hidden'; $('#legend').hidden = true; P3.show(); } startModal(!!loadSave()); }
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.snapshot?.(() => ({ S, UI: { tab: UI.tab, ship: UI.ship, port: UI.port, view: UI.view, speed: UI.speed, t: UI.t } }));
