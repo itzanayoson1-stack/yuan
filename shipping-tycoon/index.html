@@ -44,7 +44,6 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .ctl { display: flex; gap: 6px; }
 .ctl button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; min-width: 40px; font-weight: 600; }
 .ctl button.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
-#sEra { font-family: var(--f-body); font-size: 14px; }
 .stats { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.9fr); gap: 8px; margin-top: 8px; }
 .stat { min-width: 0; }
 .stat small { display: block; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
@@ -107,6 +106,17 @@ h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); letter-spacing: 0.05
 .glyph.fish { background: var(--brand); } .glyph.tour { background: var(--accent); } .glyph.bunker { background: var(--ink); }
 .bar { height: 4px; background: var(--chip); border-radius: 2px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--brand); }
+.bar.fuel i { background: var(--mine); }
+.bars { grid-column: 2 / 4; display: grid; gap: 3px; }
+.wx { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+.wx.w0 { background: color-mix(in srgb, var(--accent) 20%, var(--panel)); color: var(--ink); }
+.wx.w2 { background: color-mix(in srgb, var(--mine) 22%, var(--panel)); color: var(--ink); }
+.wx.w3 { background: var(--neg); color: #fff; }
+.costs { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.net { font-family: var(--f-num); font-weight: 700; font-size: 13.5px; }
+.net small { font-weight: 500; font-size: 11.5px; }
+.route small { font-weight: 500; color: var(--muted); margin-left: 4px; }
+.dest.has { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
 
 .dhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .back { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 10px; font-size: 13px; }
@@ -223,7 +233,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
     <div class="stat"><small>현금</small><b id="sCash">-</b></div>
     <div class="stat"><small>순자산</small><b id="sNet">-</b></div>
     <div class="stat"><small>운임지수</small><b id="sIdx">-</b></div>
-    <div class="stat"><small>시대</small><b id="sEra">-</b></div>
+    <div class="stat"><small>기름값</small><b id="sOil">-</b></div>
   </div>
 </header>
 
@@ -252,33 +262,35 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 <script>
 'use strict';
 /* ================= DATA ================= */
-const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v1';
+const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v2';
 const ERA = [null,
-  { name: '강의 시대', need: 0, scale: 1 },
-  { name: '연안의 시대', need: 40000, scale: 4 },
-  { name: '근해의 시대', need: 400000, scale: 10 },
+  { name: '강의 시대', need: 0 },
+  { name: '연안의 시대', need: 20000 },
+  { name: '근해의 시대', need: 200000 },
 ];
+// 화물 종류: rate = 운임 배율 (생선은 상하기 쉬워 비싸고 기한이 짧다)
 const GOODS = {
-  rice: { name: '쌀', base: 60, cls: 'bulk', era: 1 },
-  salt: { name: '소금', base: 25, cls: 'bulk', era: 1 },
-  wood: { name: '목재', base: 20, cls: 'bulk', era: 1 },
-  fish: { name: '생선', base: 70, cls: 'general', era: 1 },
-  goods: { name: '잡화', base: 150, cls: 'general', era: 1 },
-  cement: { name: '시멘트', base: 90, cls: 'bulk', era: 2 },
-  coal: { name: '석탄', base: 50, cls: 'bulk', era: 2 },
-  fuel: { name: '연료유', base: 120, cls: 'liquid', era: 2 },
-  ore: { name: '철광석', base: 80, cls: 'bulk', era: 3 },
+  rice: { name: '쌀', cls: 'bulk', era: 1, rate: 1.0 },
+  salt: { name: '소금', cls: 'bulk', era: 1, rate: 0.85 },
+  wood: { name: '목재', cls: 'bulk', era: 1, rate: 0.85 },
+  fish: { name: '생선', cls: 'general', era: 1, rate: 1.35, fresh: true },
+  goods: { name: '잡화', cls: 'general', era: 1, rate: 1.3 },
+  cement: { name: '시멘트', cls: 'bulk', era: 2, rate: 0.95 },
+  coal: { name: '석탄', cls: 'bulk', era: 2, rate: 0.85 },
+  fuel: { name: '석유제품', cls: 'liquid', era: 2, rate: 1.15 },
+  ore: { name: '철광석', cls: 'bulk', era: 3, rate: 0.85 },
 };
+// wage = 하루 고정비(선원비·관리비), burn = 항해 중 하루 연료 소모(t), tank = 연료 탱크(t), sail = 돛배(연료 없음)
 const SHIPS = {
-  raft:    { name: '원목선', short: '원목', role: 'cargo', cap: 10, speed: 30, price: 1000, upkeep: 5, range: 0, river: true, era: 1, build: 3, cls: ['bulk', 'general'] },
-  hwangpo: { name: '황포돛배', short: '황포', role: 'cargo', cap: 25, speed: 50, price: 3000, upkeep: 12, range: 1, river: true, era: 1, build: 10, cls: ['bulk', 'general'] },
-  fishing: { name: '소형 어선', short: '어선', role: 'fish', cap: 8, speed: 60, price: 4000, upkeep: 15, range: 1, river: false, era: 1, build: 10, only: ['fish'] },
-  leisure: { name: '낚시선', short: '낚시', role: 'tour', cap: 0, speed: 60, price: 6000, upkeep: 20, range: 1, river: false, era: 2, build: 12 },
-  coaster: { name: '연안 운반선', short: '연안', role: 'cargo', cap: 80, speed: 150, price: 25000, upkeep: 60, range: 1, river: false, era: 2, build: 30, cls: ['bulk', 'general', 'liquid'] },
-  bunker:  { name: '급유선', short: '급유', role: 'bunker', cap: 0, speed: 150, price: 30000, upkeep: 70, range: 1, river: false, era: 2, build: 30 },
-  bulk:    { name: '소형 벌크선', short: '벌크', role: 'cargo', cap: 600, speed: 350, price: 180000, upkeep: 400, range: 2, river: false, era: 3, build: 60, cls: ['bulk'] },
-  feeder:  { name: '피더 컨테이너선', short: '피더', role: 'cargo', cap: 1000, speed: 450, price: 400000, upkeep: 800, range: 2, river: false, era: 3, build: 90, cls: ['general'] },
-  tanker:  { name: '연안 탱커', short: '탱커', role: 'cargo', cap: 1500, speed: 350, price: 600000, upkeep: 1100, range: 2, river: false, era: 3, build: 90, cls: ['liquid'] },
+  ttak:    { name: '똑딱선', short: '똑딱', role: 'cargo', cap: 10, speed: 40, price: 1000, wage: 6, burn: 0.06, tank: 0.6, range: 0, river: true, era: 1, build: 5, cls: ['bulk', 'general'] },
+  hwangpo: { name: '황포돛배', short: '황포', role: 'cargo', cap: 25, speed: 50, price: 3000, wage: 17, burn: 0, tank: 0, sail: true, range: 1, river: true, era: 1, build: 10, cls: ['bulk', 'general'] },
+  fishing: { name: '소형 어선', short: '어선', role: 'fish', cap: 8, speed: 60, price: 4000, wage: 15, burn: 0.12, tank: 1.2, range: 1, river: false, era: 1, build: 10 },
+  leisure: { name: '낚시선', short: '낚시', role: 'tour', cap: 0, speed: 60, price: 6000, wage: 20, burn: 0.1, tank: 1.0, range: 1, river: false, era: 2, build: 12 },
+  coaster: { name: '연안 운반선', short: '연안', role: 'cargo', cap: 80, speed: 150, price: 25000, wage: 60, burn: 0.9, tank: 10, range: 1, river: false, era: 2, build: 30, cls: ['bulk', 'general', 'liquid'] },
+  bunker:  { name: '급유선', short: '급유', role: 'bunker', cap: 0, speed: 150, price: 30000, wage: 70, burn: 1.0, tank: 12, range: 1, river: false, era: 2, build: 30 },
+  bulk:    { name: '소형 벌크선', short: '벌크', role: 'cargo', cap: 600, speed: 350, price: 180000, wage: 400, burn: 10, tank: 120, range: 2, river: false, era: 3, build: 60, cls: ['bulk'] },
+  feeder:  { name: '피더 컨테이너선', short: '피더', role: 'cargo', cap: 1000, speed: 450, price: 400000, wage: 800, burn: 18, tank: 220, range: 2, river: false, era: 3, build: 90, cls: ['general'] },
+  tanker:  { name: '연안 탱커', short: '탱커', role: 'cargo', cap: 1500, speed: 350, price: 600000, wage: 1100, burn: 14, tank: 170, range: 2, river: false, era: 3, build: 90, cls: ['liquid'] },
 };
 const LATER = [
   { name: '케이프사이즈 벌크', cap: '150,000t', era: '4시대' }, { name: '대형 컨테이너선', cap: '80,000t', era: '4시대' },
@@ -286,6 +298,11 @@ const LATER = [
 ];
 const ROLE = { cargo: '운송', fish: '조업', tour: '관광', bunker: '급유' };
 const RANGE = ['하천', '연안', '근해'];
+// 날씨: 0 맑음 1 흐림 2 강풍 3 태풍 — 속도·연료 배율
+const WXN = ['맑음', '흐림', '강풍', '태풍'];
+const WX_SPD = [1, 0.95, 0.75, 0.4], WX_FUEL = [1, 1.08, 1.45, 1.9], WX_SAIL = [1, 1.05, 0.8, 0.25];
+const AREAS = { river: '강', west: '서해', south: '남해', east: '동해', near: '근해' };
+const BASE_FUEL = 200;
 const PORTS = {
   chungju:    { name: '충주', sub: '목계나루', lat: 37.00, lon: 127.80, size: 1, era: 1, prod: ['wood'], dem: ['salt', 'fish', 'goods'], lab: 'r' },
   yeoju:      { name: '여주', lat: 37.30, lon: 127.63, size: 1, era: 1, prod: ['rice', 'wood'], dem: ['salt', 'fish'], lab: 'r' },
@@ -405,45 +422,90 @@ function routes(from, c) {
   return { dist, prev };
 }
 function pathOf(R, to) { const p = []; for (let n = to; n !== undefined; n = R.prev[n]) p.unshift(n); return p; }
-const days = (km, spd) => Math.max(1, Math.ceil(km / spd));
 
-function depth(pid) { return 60 * PORTS[pid].size * ERA[S.era].scale; }
-function season(pid, g) {
-  if (g !== 'rice') return 1;
-  const m = dateOf(S.day).getUTCMonth(), P = PORTS[pid];
-  if ((m === 9 || m === 10) && P.prod.includes(g)) return 0.85;
-  if (m >= 3 && m <= 5 && P.dem.includes(g)) return 1.15;
-  return 1;
+/* ---- sea areas & weather ---- */
+const EDGE_AREA = {};
+for (const [a, b, t] of EDGES) {
+  const A = NODES[a], B = NODES[b], la = (A.lat + B.lat) / 2, lo = (A.lon + B.lon) / 2;
+  const area = t === 'r' ? 'river' : t === 'n' ? 'near' : lo < 126.9 ? 'west' : (la < 35.25 && lo < 129.25) ? 'south' : 'east';
+  EDGE_AREA[a + '|' + b] = EDGE_AREA[b + '|' + a] = area;
 }
-function price(pid, g, s) {
-  const P = PORTS[pid], m = S.market[pid][g];
-  let mod = P.prod.includes(g) ? 0.6 : P.dem.includes(g) ? 1.45 : 1;
-  mod *= season(pid, g);
-  for (const e of S.events) if (e.port === pid && e.good === g) mod *= e.f;
-  const st = clamp(s === undefined ? m.s : s, -0.5, 2.5);
-  return GOODS[g].base * mod * m.tr * (1 + 0.4 * (1 - st));
+function portArea(pid) { const e = (ADJ[pid] || []).find(e => e.t !== 'r') || ADJ[pid][0]; return EDGE_AREA[pid + '|' + e.to]; }
+function season(m) { return (m === 11 || m <= 1) ? 'winter' : (m >= 6 && m <= 8) ? 'summer' : 'mild'; }
+function wxProbs(area, m) {
+  const sz = season(m);
+  if (area === 'river') return sz === 'summer' ? [0.7, 0.25, 0.05, 0] : [0.85, 0.15, 0, 0];
+  if (sz === 'winter') return area === 'south' ? [0.6, 0.25, 0.15, 0] : [0.45, 0.25, 0.3, 0];
+  if (sz === 'summer') return area === 'near' || area === 'south' ? [0.5, 0.25, 0.13, 0.12] : [0.55, 0.25, 0.13, 0.07];
+  return [0.7, 0.22, 0.08, 0];
 }
-const buyUnit = (pid, g) => price(pid, g) * 1.05;
-const sellUnit = (pid, g) => price(pid, g) * 0.95;
-function buyCost(pid, g, q) { const m = S.market[pid][g]; return q * price(pid, g, m.s - q / depth(pid) / 2) * 1.05; }
-function sellRev(pid, g, q) { const m = S.market[pid][g]; return q * price(pid, g, m.s + q / depth(pid) / 2) * 0.95; }
+function nextWx(area, prev, day) {
+  const m = dateOf(day).getUTCMonth(), p = wxProbs(area, m);
+  if (prev === 3 && Math.random() < 0.55) return 3;
+  if (prev > 0 && Math.random() < 0.5 && p[prev] > 0) return prev;
+  let r = Math.random(); for (let i = 0; i < 4; i++) { if (r < p[i]) return i; r -= p[i]; } return 0;
+}
+const wxNow = (area, k = 0) => S.wx[area][Math.min(k, 2)];
 
-function load(sh) { let u = 0; for (const g in sh.cargo) u += sh.cargo[g].q; for (const c of sh.cons) u += c.q; return u; }
+/* ---- prices & costs ---- */
+function fuelPrice(pid) {
+  const P = PORTS[pid];
+  let m = 1;
+  if ((ADJ[pid] || []).every(e => e.t === 'r')) m = 1.15;
+  if ((pid === 'ulsan' || pid === 'yeosu') && S.era >= 2) m = 0.82;
+  if (P.era === 3) m = 1.05;
+  return BASE_FUEL * oilLevel() * m;
+}
+function oilLevel() { return S.oil + S.oilShock; }
+// 외상(운영자금) 한도: 선박 가치의 30%까지 연료를 외상으로 살 수 있다
+function creditLine() { return S.ships.reduce((a, sh) => a + shipValue(sh), 0) * 0.3; }
+const portFee = t => Math.round(5 + t.cap * 0.4);
+const wage = sh => T(sh).wage * (1 + 0.03 * sh.age / 365) * (sh.mode === 'layup' ? 0.25 : 1);
+const fullWage = sh => T(sh).wage * (1 + 0.03 * sh.age / 365);
+function load(sh) { let u = 0; for (const c of sh.cons) u += c.q; for (const g in sh.cargo) u += sh.cargo[g].q; return u; }
 const freeCap = sh => T(sh).cap - load(sh);
-function canCarry(sh, g) { const t = T(sh); if (t.only) return t.only.includes(g); return !!t.cls && t.cls.includes(GOODS[g].cls); }
-function typeCarries(t, g) { if (t.only) return t.only.includes(g); return !!t.cls && t.cls.includes(GOODS[g].cls); }
+function typeCarries(t, g) { return !!t.cls && t.cls.includes(GOODS[g].cls); }
+const canCarry = (sh, g) => typeCarries(T(sh), g);
 const priceMul = () => 0.85 + 0.15 * S.idx;
 const newPrice = t => t.price * priceMul();
 function shipValue(sh) { return T(sh).price * Math.max(0.1, 1 - sh.age / 365 / 35) * priceMul() * 0.9; }
 const usedPrice = L => SHIPS[L.type].price * Math.max(0.1, 1 - L.age / 35) * priceMul();
-const upkeep = sh => T(sh).upkeep * (1 + 0.03 * sh.age / 365);
-function cargoValue(sh) { let v = 0; for (const g in sh.cargo) { const c = sh.cargo[g]; v += c.q * (c.cost > 0 ? c.cost : GOODS[g].base * 0.6); } return v; }
-function netWorth() { let v = S.cash; for (const sh of S.ships) v += shipValue(sh) + cargoValue(sh); for (const o of S.orders) v += o.paid * 0.8; return v; }
+function netWorth() { let v = S.cash; for (const sh of S.ships) v += shipValue(sh) + (sh.fuel || 0) * BASE_FUEL * oilLevel(); for (const o of S.orders) v += o.paid * 0.8; return v; }
 function rankList() {
   const arr = [{ name: S.name, w: netWorth(), me: true }, ...S.rivals.map(r => ({ name: r.name, w: r.w }))];
   return arr.sort((a, b) => b.w - a.w);
 }
 const myRank = () => rankList().findIndex(r => r.me) + 1;
+
+/* ---- voyage planning: simulate day by day on the forecast ---- */
+function segsOf(path) {
+  const segs = []; let at = 0;
+  for (let i = 1; i < path.length; i++) { const e = ADJ[path[i - 1]].find(e => e.to === path[i]); segs.push({ from: at, to: at + e.d, area: EDGE_AREA[path[i - 1] + '|' + path[i]] }); at += e.d; }
+  return segs;
+}
+const areaAt = (segs, km) => (segs.find(s => km < s.to) || segs[segs.length - 1]).area;
+function dayStep(t, area, k, laden) {
+  const w = wxNow(area, k);
+  const spd = t.speed * (t.sail ? WX_SAIL[w] : WX_SPD[w]);
+  const fuel = t.burn * WX_FUEL[w] * (laden ? 1 : 0.8);
+  return { spd, fuel, w };
+}
+function plan(sh, to, extraQ = 0) {
+  const t = T(sh), R = routes(sh.loc, t);
+  if (R.dist[to] === undefined) return null;
+  const path = pathOf(R, to), segs = segsOf(path), dist = R.dist[to];
+  const laden = load(sh) + extraQ > 0;
+  let done = 0, d = 0, fuel = 0, worst = 0;
+  while (done < dist && d < 60) { const st = dayStep(t, areaAt(segs, done), d, laden); done += st.spd; fuel += st.fuel; worst = Math.max(worst, st.w); d++; }
+  const fp = fuelPrice(sh.loc);
+  const cost = fuel * fp + fullWage(sh) * d + portFee(t);
+  return { path, segs, dist, days: d, fuel, worst, cost, fuelCost: fuel * fp };
+}
+function jobNet(sh, c) {
+  const p = plan(sh, c.to, c.q); if (!p) return null;
+  const pay = c.pay;
+  return { ...p, pay, net: pay - p.cost, perDay: (pay - p.cost) / p.days };
+}
 
 function news(t) { S.news.unshift({ d: S.day, t }); if (S.news.length > 60) S.news.length = 60; }
 function toast(t) {
@@ -456,21 +518,22 @@ function toast(t) {
 /* ================= GAME SETUP ================= */
 function newGame(name, home) {
   S = {
-    v: 1, name: name || '한국해운', home, day: 0, cash: 1500, era: 1, idx: 1, shock: 0, phase: Math.random() * 6.28,
-    ships: [], seq: {}, sid: 1, market: {}, contracts: [], cid: 1, used: [], orders: [], events: [],
+    v: 2, name: name || '한국해운', home, day: 0, cash: 800, era: 1, idx: 1, shock: 0, phase: Math.random() * 6.28, oil: 1, oilShock: 0,
+    ships: [], seq: {}, sid: 1, contracts: [], cid: 1, used: [], orders: [], events: [], wx: {},
     rivals: RIVALS.map(r => ({ ...r })), news: [], hist: [], won: false, over: false, autoPause: true, tip: true,
   };
-  for (const p in PORTS) { S.market[p] = {}; for (const g in GOODS) S.market[p][g] = { s: rnd(0.85, 1.15), tr: rnd(0.95, 1.05) }; }
-  addShip('raft', home, 0);
+  for (const a in AREAS) { S.wx[a] = [0]; S.wx[a].push(nextWx(a, 0, 1)); S.wx[a].push(nextWx(a, S.wx[a][1], 2)); }
+  addShip('ttak', home, 0);
   refreshUsed();
-  for (let i = 0; i < 8; i++) genContract();
-  news(`${S.name} 창업. ${PORTS[home].name} 나루에서 원목선 한 척으로 시작합니다.`);
+  for (let i = 0; i < 12; i++) genContract();
+  for (let i = 0; i < 3; i++) genContract(home, 'ttak');
+  news(`${S.name} 창업. ${PORTS[home].name} 나루에서 똑딱선 한 척으로 운송업을 시작합니다.`);
   S.hist.push(histPoint());
   UI.port = home; UI.ship = null; UI.tab = 'fleet'; UI.t = 0; UI.view = P3.ok ? 'port3d' : 'kr';
 }
 function addShip(type, loc, ageDays) {
   const t = SHIPS[type]; S.seq[type] = (S.seq[type] || 0) + 1;
-  const sh = { id: S.sid++, type, name: `${t.short} ${S.seq[type]}호`, age: ageDays || 0, loc, voy: null, cargo: {}, cons: [], mode: 'idle', busy: 0 };
+  const sh = { id: S.sid++, type, name: `${t.short} ${S.seq[type]}호`, age: ageDays || 0, loc, voy: null, cargo: {}, cons: [], mode: 'idle', busy: 0, fuel: t.tank, earn: 0, spend: 0 };
   S.ships.push(sh); return sh;
 }
 function deliveryPort(t) { return t.river ? S.home : (S.home === 'mapo' ? 'incheon' : 'busan'); }
@@ -484,91 +547,91 @@ function refreshUsed() {
     S.used.push({ type, age: rint(3, 25), loc: pick(ports), id: Math.random().toString(36).slice(2, 8) });
   }
 }
-function genContract() {
+// 운송 의뢰: 어떤 크기의 배가 실을 만한지 먼저 정하고, 그 배가 갈 수 있는 목적지를 고른다
+function genContract(forceFrom, forceType) {
   const open = Object.keys(PORTS).filter(portOpen);
-  for (let tries = 0; tries < 8; tries++) {
-    const from = pick(open.flatMap(p => Array(PORTS[p].size).fill(p)));
+  const cargoTypes = Object.entries(SHIPS).filter(([k, t]) => t.role === 'cargo' && t.era <= S.era);
+  for (let tries = 0; tries < 10; tries++) {
+    const [tk, t] = forceType ? [forceType, SHIPS[forceType]] : cargoTypes[Math.floor(Math.pow(Math.random(), 1.6) * cargoTypes.length)];
+    const starts = open.filter(p => (ADJ[p] || []).some(e => okEdge(e.t, t)));
+    const from = forceFrom || pick(starts.flatMap(p => Array(PORTS[p].size).fill(p)));
     const P = PORTS[from];
-    const prods = P.prod.filter(goodOpen);
-    const g = prods.length && Math.random() < 0.75 ? pick(prods) : pick(Object.keys(GOODS).filter(goodOpen));
-    const dems = open.filter(p => p !== from && PORTS[p].dem.includes(g));
-    const to = dems.length && Math.random() < 0.8 ? pick(dems) : pick(open.filter(p => p !== from));
-    let bestCap = 0, km = 0, slow = Infinity;
-    for (const t of Object.values(SHIPS)) {
-      if (t.era > S.era || t.role !== 'cargo' || !typeCarries(t, g)) continue;
-      const R = routes(from, t);
-      if (R.dist[to] === undefined) continue;
-      if (t.cap > bestCap) { bestCap = t.cap; km = R.dist[to]; }
-      slow = Math.min(slow, t.speed);
-    }
-    if (!bestCap) continue;
-    const q = Math.max(3, Math.round(rnd(0.3, 1) * bestCap));
-    const pay = Math.round(q * (12 + 0.05 * km) * S.idx * rnd(0.85, 1.25) / 10) * 10;
-    S.contracts.push({ id: S.cid++, from, to, good: g, q, km: Math.round(km), pay, due: days(km, slow) + 6, offer: S.day + rint(8, 14) });
+    const gs = Object.keys(GOODS).filter(g => goodOpen(g) && typeCarries(t, g));
+    if (!gs.length) continue;
+    const prod = P.prod.filter(g => gs.includes(g));
+    const g = prod.length && Math.random() < 0.7 ? pick(prod) : pick(gs);
+    const R = routes(from, t);
+    const cands = open.filter(p => p !== from && R.dist[p] !== undefined);
+    if (!cands.length) continue;
+    const dem = cands.filter(p => PORTS[p].dem.includes(g));
+    const to = dem.length && Math.random() < 0.75 ? pick(dem) : pick(cands);
+    const km = R.dist[to];
+    const q = Math.max(3, Math.round(t.cap * rnd(0.35, 1)));
+    const boom = S.events.some(e => e.port === from) ? 1.4 : 1;
+    const pay = Math.round(q * GOODS[g].rate * (14 + 0.06 * km) * S.idx * boom * rnd(0.85, 1.2) / 5) * 5;
+    const due = Math.ceil(km / (t.speed * 0.75)) + (GOODS[g].fresh ? 1 : 4);
+    S.contracts.push({ id: S.cid++, from, to, good: g, q, km: Math.round(km), pay, due, offer: S.day + rint(5, 11), size: tk });
     return;
   }
 }
 
 /* ================= ACTIONS ================= */
-function maxBuy(sh, g) {
-  const pid = sh.loc; let hi = freeCap(sh);
-  if (hi <= 0) return 0;
-  if (buyCost(pid, g, hi) <= S.cash) return hi;
-  let lo = 0;
-  while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (buyCost(pid, g, mid) <= S.cash) lo = mid; else hi = mid - 1; }
-  return lo;
+function doRefuel(sh, frac) {
+  const t = T(sh), want = Math.max(0, t.tank * frac - sh.fuel), price = fuelPrice(sh.loc);
+  const q = Math.min(want, Math.max(0, S.cash + creditLine()) / price);
+  if (q <= 0.001) { toast('현금과 외상 한도가 모두 바닥났습니다. 배를 팔거나 계선하세요'); return; }
+  S.cash -= q * price; sh.fuel += q; sh.spend += q * price;
+  toast(`${sh.name} 연료 ${q.toFixed(2)}t 보충 ${won(q * price)}`); SND.play('click');
 }
-function doBuy(sh, g, q) {
-  if (q <= 0) return;
-  const cost = buyCost(sh.loc, g, q);
-  if (cost > S.cash) return;
-  S.cash -= cost; S.market[sh.loc][g].s -= q / depth(sh.loc);
-  const c = sh.cargo[g] || (sh.cargo[g] = { q: 0, cost: 0 });
-  c.cost = (c.cost * c.q + cost) / (c.q + q); c.q += q;
-  toast(`${GOODS[g].name} ${q}t 매수 ${won(cost)}`); SND.play('click');
-}
-function doSell(sh, g) {
-  const c = sh.cargo[g]; if (!c || !c.q) return;
-  const rev = sellRev(sh.loc, g, c.q), gain = rev - c.cost * c.q;
-  S.cash += rev; S.market[sh.loc][g].s += c.q / depth(sh.loc);
-  toast(`${GOODS[g].name} ${c.q}t 매도 ${won(rev)} (차익 ${sgn(gain)})`);
-  delete sh.cargo[g]; SND.play('coin');
-}
-function doSail(sh, to) {
-  const t = T(sh), R = routes(sh.loc, t);
-  if (R.dist[to] === undefined) return;
-  const d = days(R.dist[to], t.speed);
-  sh.voy = { from: sh.loc, to, path: pathOf(R, to), dep: S.day, arr: S.day + d };
-  sh.loc = null; sh.mode = 'idle'; UI.confirm = null;
-  toast(`${sh.name} 출항 → ${PORTS[to].name} (${d}일)`); SND.play('horn');
-  if (!UI.playing) setPlaying(true);
-}
-function doFish(sh) {
-  sh.mode = 'fishing'; sh.busy = S.day + 3;
-  toast(`${sh.name} 조업 출항 (3일)`);
-  if (!UI.playing) setPlaying(true);
-}
-function doAccept(cid, sh) {
+function doLoad(cid, sh) {
   const i = S.contracts.findIndex(c => c.id === cid); if (i < 0) return;
   const c = S.contracts[i];
   if (sh.loc !== c.from || freeCap(sh) < c.q || !canCarry(sh, c.good)) return;
   S.contracts.splice(i, 1);
   sh.cons.push({ ...c, deadline: S.day + c.due });
-  SND.play('click'); toast(`계약 수락: ${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}`);
+  SND.play('click'); toast(`${GOODS[c.good].name} ${c.q}t 선적 → ${PORTS[c.to].name} · 운임 ${won(c.pay)}`);
+}
+function doUnload(cid, sh) {
+  const i = sh.cons.findIndex(c => c.id === cid); if (i < 0 || sh.voy) return;
+  const [c] = sh.cons.splice(i, 1);
+  if (c.offer >= S.day) S.contracts.push(c);
+  toast(`${GOODS[c.good].name} ${c.q}t 하역 (의뢰 반납)`);
+}
+function doSail(sh, to) {
+  const p = plan(sh, to); if (!p) return;
+  if (T(sh).burn && sh.fuel + 1e-6 < p.fuel) { toast(`연료가 모자랍니다. 예상 ${p.fuel.toFixed(2)}t 필요, 남은 연료 ${sh.fuel.toFixed(2)}t`); return; }
+  S.cash -= portFee(T(sh)); sh.spend += portFee(T(sh));
+  sh.voy = { from: sh.loc, to, path: p.path, segs: p.segs, dist: p.dist, done: 0, dep: S.day, next: 0, eta: p.days };
+  sh.voy.next = dayStep(T(sh), areaAt(p.segs, 0), 0, load(sh) > 0).spd;
+  sh.loc = null; sh.mode = 'idle'; UI.confirm = null;
+  toast(`${sh.name} 출항 → ${PORTS[to].name} (예상 ${p.days}일)`); SND.play('horn');
+  if (!UI.playing) setPlaying(true);
+}
+function doFish(sh) {
+  const need = T(sh).burn * 3 * WX_FUEL[wxNow(portArea(sh.loc))];
+  if (sh.fuel < need) { toast('조업 나갈 연료가 모자랍니다'); return; }
+  sh.mode = 'fishing'; sh.busy = S.day + 3;
+  toast(`${sh.name} 조업 출항 (3일)`); SND.play('horn');
+  if (!UI.playing) setPlaying(true);
+}
+function doLayup(sh) { sh.mode = 'layup'; toast(`${sh.name} 계선(휴업). 고정비가 ${won(fullWage(sh))} → ${won(wage(sh))}/일로 줄어듭니다`); }
+function doReactivate(sh) {
+  const fee = fullWage(sh) * 5; S.cash -= fee; sh.spend += fee; sh.mode = 'react'; sh.busy = S.day + 2;
+  toast(`${sh.name} 재가동 시작 · ${won(fee)} · 2일 뒤 운항 가능`);
 }
 function doOrder(type) {
   const t = SHIPS[type], cost = newPrice(t);
   if (S.cash < cost) return;
   S.cash -= cost;
   S.orders.push({ type, ready: S.day + t.build, port: deliveryPort(t), paid: cost });
-  toast(`${t.name} 발주 완료. ${t.build}일 뒤 ${PORTS[deliveryPort(t)].name}에서 인도`);
+  toast(`${t.name} 발주 완료. ${t.build}일 뒤 ${PORTS[deliveryPort(t)].name}에서 인도`); SND.play('click');
 }
 function doBuyUsed(id) {
   const i = S.used.findIndex(u => u.id === id); if (i < 0) return;
   const L = S.used[i], cost = usedPrice(L);
   if (S.cash < cost) return;
   S.cash -= cost; S.used.splice(i, 1);
-  const sh = addShip(L.type, L.loc, L.age * 365);
+  const sh = addShip(L.type, L.loc, L.age * 365); sh.fuel = SHIPS[L.type].tank * 0.3;
   toast(`${sh.name} 매입 (${L.age}년 된 중고선, ${PORTS[L.loc].name})`);
 }
 function doSellShip(sh) {
@@ -579,33 +642,25 @@ function doSellShip(sh) {
 
 /* ================= DAILY TICK ================= */
 function histPoint() { return { d: S.day, me: netWorth(), r: S.rivals.map(r => r.w) }; }
+function voyProg(sh) { const v = sh.voy; return clamp((v.done + v.next * clamp(UI.t - S.day, 0, 1)) / v.dist, 0, 1); }
 function tick() {
   S.day++;
-  const month = dateOf(S.day).getUTCMonth();
+  // weather: shift the 3-day forecast
+  for (const a in S.wx) {
+    const w = S.wx[a], before = w[0]; w.shift(); w.push(nextWx(a, w[w.length - 1], S.day + 2));
+    if (w[0] === 3 && before !== 3 && a !== 'river') news(`${AREAS[a]}에 태풍 — 항해 중인 배가 느려지고 연료를 많이 씁니다`);
+  }
+  // markets: freight index (2-year cycle) and oil price (random walk + rare shocks)
   S.shock = S.shock * 0.97 + gauss() * 0.025;
   S.idx = clamp(1 + 0.3 * Math.sin(2 * Math.PI * S.day / 720 + S.phase) + S.shock, 0.55, 1.6);
-  for (const p in S.market) for (const g in S.market[p]) {
-    const m = S.market[p][g];
-    m.s += (1 - m.s) * 0.08;
-    m.tr = clamp(1 + (m.tr - 1) * 0.95 + gauss() * 0.012, 0.8, 1.2);
-  }
+  S.oilShock *= 0.985;
+  if (S.era >= 2 && Math.random() < 0.0015) { S.oilShock += 0.8; news('중동 정세 불안 — 국제 유가 급등'); toast('유가 급등! 기름값이 크게 올랐습니다'); }
+  S.oil = clamp(S.oil + (1 - S.oil) * 0.02 + gauss() * 0.018, 0.6, 1.6);
   S.events = S.events.filter(e => e.until > S.day);
-  if (Math.random() < 0.025) {
-    const p = pick(Object.keys(PORTS).filter(portOpen)), g = pick(Object.keys(GOODS).filter(goodOpen));
-    const up = Math.random() < 0.5, f = up ? rnd(1.5, 1.9) : rnd(0.45, 0.65);
-    S.events.push({ port: p, good: g, f, until: S.day + rint(12, 25) });
-    const lab = up ? '수요 급증' : (g === 'rice' ? '풍년으로 값 폭락' : '공급 과잉');
-    news(`${PORTS[p].name} ${GOODS[g].name} ${lab}`);
-  }
-  if (month >= 6 && month <= 8 && Math.random() < 0.04) {
-    let n = 0;
-    for (const sh of S.ships) {
-      if (!sh.voy) continue;
-      const p = sh.voy.path, atSea = p.some((id, i) => i > 0 && ADJ[p[i - 1]].find(e => e.to === id).t !== 'r');
-      if (atSea) { sh.voy.arr += rint(1, 3); n++; }
-    }
-    news(`태풍 상륙${n ? ` — 항해 중인 배 ${n}척 지연` : ''}`);
-    if (n) toast(`태풍! 항해 중인 배 ${n}척이 지연됩니다`);
+  if (Math.random() < 0.02) {
+    const p = pick(Object.keys(PORTS).filter(portOpen));
+    S.events.push({ port: p, until: S.day + rint(12, 25) });
+    news(`${PORTS[p].name} 물동량 급증 — 그 항구에서 나가는 운임이 오릅니다`);
   }
   // ships
   const tourCount = {}, bunkCount = {};
@@ -613,66 +668,76 @@ function tick() {
   for (const sh of S.ships) if (sh.loc && sh.mode === 'bunker') bunkCount[sh.loc] = (bunkCount[sh.loc] || 0) + 1;
   let arrived = false;
   for (const sh of S.ships) {
+    const t = T(sh);
     sh.age++;
-    S.cash -= upkeep(sh);
-    if (sh.loc && sh.mode === 'tour') S.cash += (PORTS[sh.loc].tour || 0) * 60 * (0.7 + 0.3 * S.idx) / tourCount[sh.loc];
-    if (sh.loc && sh.mode === 'bunker') S.cash += (PORTS[sh.loc].traffic || 0) * 260 * S.idx / bunkCount[sh.loc];
-    if (sh.mode === 'fishing' && S.day >= sh.busy) {
-      const q = Math.min(freeCap(sh), rint(4, 8));
-      if (q > 0) { const c = sh.cargo.fish || (sh.cargo.fish = { q: 0, cost: 0 }); c.cost = c.cost * c.q / (c.q + q); c.q += q; }
-      sh.mode = 'idle';
-      news(`${sh.name} 조업 귀항 — 생선 ${q}t`); toast(`${sh.name} 귀항: 생선 ${q}t`);
-      arrived = true;
-    }
-    if (sh.voy && S.day >= sh.voy.arr) {
-      sh.loc = sh.voy.to; sh.voy = null;
-      let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`;
-      const keep = [];
-      for (const c of sh.cons) {
-        if (c.to === sh.loc) {
-          const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay;
-          S.cash += pay; msg += ` · 계약 운임 ${won(pay)}${late ? ' (지연, 절반)' : ''}`;
-        } else keep.push(c);
+    S.cash -= wage(sh); sh.spend += wage(sh);
+    if (sh.loc && sh.mode === 'tour') { const v = (PORTS[sh.loc].tour || 0) * 60 * (0.7 + 0.3 * S.idx) / tourCount[sh.loc]; S.cash += v; sh.earn += v; }
+    if (sh.loc && sh.mode === 'bunker') { const v = (PORTS[sh.loc].traffic || 0) * 260 * S.idx * oilLevel() / bunkCount[sh.loc]; S.cash += v; sh.earn += v; }
+    if (sh.mode === 'react' && S.day >= sh.busy) { sh.mode = 'idle'; news(`${sh.name} 재가동 완료`); }
+    if (sh.mode === 'fishing') {
+      sh.fuel = Math.max(0, sh.fuel - t.burn * WX_FUEL[wxNow(portArea(sh.loc))]);
+      if (S.day >= sh.busy) {
+        const q = rint(4, 8), rev = q * 70 * rnd(0.85, 1.2) * (0.85 + 0.15 * S.idx);
+        S.cash += rev; sh.earn += rev; sh.mode = 'idle';
+        news(`${sh.name} 조업 귀항 — 생선 ${q}t 위판 ${won(rev)}`); toast(`${sh.name} 귀항: 생선 ${q}t → ${won(rev)}`); SND.play('coin');
+        arrived = true;
       }
-      sh.cons = keep;
-      news(msg); toast(msg); arrived = true; SND.play('bell');
+    }
+    if (sh.voy) {
+      const v = sh.voy, st = dayStep(t, areaAt(v.segs, v.done), 0, load(sh) > 0);
+      let spd = st.spd;
+      if (t.burn) {
+        if (sh.fuel < st.fuel) {
+          const tow = st.fuel * fuelPrice(v.to) * 4 + fullWage(sh) * 3;
+          S.cash -= tow; sh.spend += tow; sh.fuel = st.fuel; spd *= 0.4;
+          news(`${sh.name} 연료 고갈 — 긴급 급유·예인 ${won(tow)}`); toast(`${sh.name} 연료 고갈! 긴급 급유 비용 ${won(tow)}`);
+        }
+        sh.fuel = Math.max(0, sh.fuel - st.fuel);
+      }
+      if (st.w === 3 && Math.random() < 0.06) { const dmg = t.price * 0.02; S.cash -= dmg; sh.spend += dmg; news(`${sh.name} 태풍 피해 — 수리비 ${won(dmg)}`); }
+      v.done += spd;
+      if (v.done >= v.dist) {
+        sh.loc = v.to; sh.voy = null;
+        let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`, got = 0;
+        const keep = [];
+        for (const c of sh.cons) {
+          if (c.to === sh.loc) { const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay; S.cash += pay; sh.earn += pay; got += pay; if (late) msg += ' · 기한 초과로 운임 절반'; }
+          else keep.push(c);
+        }
+        sh.cons = keep;
+        if (got) { msg += ` · 운임 ${won(got)}`; SND.play('coin'); } else SND.play('bell');
+        news(msg); toast(msg); arrived = true;
+      } else v.next = dayStep(t, areaAt(v.segs, v.done), 1, load(sh) > 0).spd;
     }
   }
   if (S.cash < 0) S.cash *= 1.001;
-  // orders
   for (const o of S.orders.filter(o => o.ready <= S.day)) {
     const sh = addShip(o.type, o.port, 0);
     news(`신조선 ${sh.name} 인도 (${PORTS[o.port].name})`); toast(`신조선 ${sh.name} 인도!`);
   }
   S.orders = S.orders.filter(o => o.ready > S.day);
-  // contracts
+  // freight jobs: expire, rivals take some, new ones appear
   S.contracts = S.contracts.filter(c => {
     if (c.offer < S.day) return false;
-    if (Math.random() < 0.035) {
-      const r = pick(S.rivals);
-      if (Math.random() < 0.35) news(`${r.name}이(가) ${PORTS[c.from].name}→${PORTS[c.to].name} ${GOODS[c.good].name} 계약을 가져갔습니다`);
-      return false;
-    }
+    if (Math.random() < 0.03) { const r = pick(S.rivals); if (Math.random() < 0.3) news(`${r.name}이(가) ${PORTS[c.from].name}→${PORTS[c.to].name} ${GOODS[c.good].name} 화물을 가져갔습니다`); return false; }
     return true;
   });
-  const want = 10 + S.era * 3;
-  if (S.contracts.length < want && Math.random() < 0.7) genContract();
-  if (S.contracts.length < want / 2) genContract();
+  const growth = Math.min(2.5, 1 + S.day / 500); // 경제 성장으로 물동량이 늘어난다
+  const want = [0, 34, 60, 90][S.era] * growth;
+  for (let k = 0; k < [0, 7, 11, 15][S.era] * growth; k++) if (S.contracts.length < want && Math.random() < 0.8) genContract();
+  // keep a little work around wherever my ships wait
+  for (const sh of S.ships) if (sh.loc && !sh.voy && T(sh).role === 'cargo' && Math.random() < 0.5 && !S.contracts.some(c => c.from === sh.loc && c.q <= T(sh).cap && canCarry(sh, c.good))) genContract(sh.loc, sh.type);
   if (S.day % 30 === 0) refreshUsed();
-  // rivals
   for (const r of S.rivals) {
-    const g = 0.03 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) + gauss() * r.noise;
+    const g = 0.024 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) - 0.004 * (oilLevel() - 1) + gauss() * r.noise;
     r.w = Math.max(500, r.w * (1 + g));
   }
-  // era, history, end states
   const nw = netWorth();
   if (S.era < 3 && nw >= ERA[S.era + 1].need) {
     S.era++; SND.play('fanfare');
     news(`${ERA[S.era].name} 개막`);
     for (const p in PORTS) if (PORTS[p].era === S.era) news(`${PORTS[p].name} 항로 개설`);
-    refreshUsed();
-    setPlaying(false);
-    eraModal();
+    refreshUsed(); setPlaying(false); eraModal();
   }
   if (S.day % 5 === 0) { S.hist.push(histPoint()); if (S.hist.length > 500) S.hist.splice(0, S.hist.length - 500); }
   if (!S.won && nw >= GOAL && myRank() === 1) { S.won = true; setPlaying(false); winModal(); }
@@ -759,8 +824,7 @@ function drawShips() {
   for (const sh of S.ships) {
     let x, y, a = 0;
     if (sh.voy) {
-      const f = (UI.t - sh.voy.dep) / (sh.voy.arr - sh.voy.dep);
-      [x, y, a] = posOnPath(sh.voy.path, f);
+      [x, y, a] = posOnPath(sh.voy.path, voyProg(sh));
     } else if (sh.mode === 'fishing') {
       const N = NODES[sh.loc]; x = N.x + 9 * u + Math.sin(UI.t * 6) * 1.5 * u; y = N.y + 8 * u; a = 0.3;
     } else continue;
@@ -802,26 +866,24 @@ const SND = {
    merged into a few meshes with one vertex-coloured material. */
 function josa(w, a, b) { const c = w.charCodeAt(w.length - 1) - 0xac00; return w + (c >= 0 && c < 11172 && c % 28 ? a : b); }
 function portHints(pid) {
-  if (!S) return ['어서 오세요, 선주님!', '오늘은 바람이 좋네요', '강에 배가 많아졌어요', '새 배는 언제 들어오려나'];
-  const P = PORTS[pid], out = [], gs = Object.keys(GOODS).filter(goodOpen);
-  const ratio = g => price(pid, g) / GOODS[g].base;
-  const cheap = gs.reduce((a, g) => ratio(g) < ratio(a) ? g : a), dear = gs.reduce((a, g) => ratio(g) > ratio(a) ? g : a);
-  out.push(`오늘 ${josa(GOODS[cheap].name, '이', '가')} 싸요! ${won(buyUnit(pid, cheap))}/t`);
-  out.push(`${GOODS[dear].name} 찾는 사람이 많아요. ${won(sellUnit(pid, dear))}에 사요`);
-  let best = null;
-  for (const p in PORTS) if (p !== pid && portOpen(p)) { const u = sellUnit(p, cheap); if (!best || u > best.u) best = { p, u }; }
-  if (best) out.push(`${josa(GOODS[cheap].name, '은', '는')} ${PORTS[best.p].name}에서 ${won(best.u)}까지 쳐준대요`);
-  for (const e of S.events) if (e.port === pid) out.push(`${GOODS[e.good].name} 값이 ${e.f > 1 ? '치솟았어요!' : '폭락했어요…'}`);
-  const n = S.contracts.filter(c => c.from === pid).length;
-  if (n) out.push(`계약소에 운임 계약 ${n}건이 기다려요`);
-  const m = dateOf(S.day).getUTCMonth();
-  if (m >= 6 && m <= 8) out.push('태풍철이에요. 바닷길 조심하세요');
-  if (S.idx > 1.15) out.push('요즘 해운 경기가 좋대요');
-  if (S.idx < 0.85) out.push('불황이라 배값이 싸졌대요. 살 때예요');
+  if (!S) return ['어서 오세요, 선주님!', '오늘은 물때가 좋네요', '서울 가는 짐이 많대요', '똑딱선 소리가 정겹지요'];
+  const P = PORTS[pid], out = [], area = portArea(pid);
+  const jobs = S.contracts.filter(c => c.from === pid).sort((a, b) => b.pay - a.pay);
+  if (jobs.length) { const c = jobs[0]; out.push(`${PORTS[c.to].name}행 ${GOODS[c.good].name} ${c.q}t, 운임 ${won(c.pay)}짜리 짐 있어요`); out.push(`여기서 나가는 화물이 ${jobs.length}건이에요`); }
+  else out.push('오늘은 실을 짐이 없네요…');
+  const fp = fuelPrice(pid), cheap = Object.keys(PORTS).filter(portOpen).reduce((a, p) => fuelPrice(p) < fuelPrice(a) ? p : a, pid);
+  out.push(cheap === pid ? `기름은 여기가 제일 싸요. ${won(fp)}/t` : `기름은 ${PORTS[cheap].name}이 더 싸대요. 여긴 ${won(fp)}/t`);
+  const tm = S.wx[area][1];
+  if (tm >= 2) out.push(`내일 ${AREAS[area]}에 ${WXN[tm]} 예보래요. 연료 넉넉히!`);
+  else if (S.wx[area][0] >= 2) out.push(`오늘 ${AREAS[area]} 바다가 사나워요`);
+  else out.push(`${AREAS[area]} 날씨가 좋아요. 배 띄우기 좋은 날`);
+  if (S.events.some(e => e.port === pid)) out.push('요즘 여기 물동량이 넘쳐요! 운임이 올랐어요');
+  if (S.idx > 1.15) out.push('요즘 운임이 좋아요. 배가 모자랄 지경이래요');
+  if (S.idx < 0.85) out.push('불황이라 배를 묶어 두는 집이 많대요');
+  if (oilLevel() > 1.25) out.push('기름값이 너무 올랐어요…');
   if (P.tour) out.push('여긴 낚시 손님이 많아요');
   return out;
 }
-
 const P3 = (() => {
   const THREE = window.THREE;
   if (!THREE) return { ok: false, show() {}, hide() {}, sync() {}, frame() {} };
@@ -885,15 +947,16 @@ const P3 = (() => {
     b.box(-w / 2 - 0.06, w / 2 + 0.06, base + hgt, base + hgt + 0.07, z0 - 0.05, z1 + 0.05, PAL.steel);
   }
   const SHIPGEO = {};
-  const SHIPLEN = { raft: 1.8, hwangpo: 2.4, fishing: 2.1, leisure: 2.3, coaster: 3.4, bunker: 3.0, bulk: 5.0, feeder: 5.2, tanker: 5.2 };
+  const SHIPLEN = { ttak: 1.9, hwangpo: 2.4, fishing: 2.1, leisure: 2.3, coaster: 3.4, bunker: 3.0, bulk: 5.0, feeder: 5.2, tanker: 5.2 };
   function shipGeo(type) {
     if (SHIPGEO[type]) return SHIPGEO[type];
     const b = new VB();
-    if (type === 'raft') {
-      for (let k = -2; k <= 2; k++) b.box(k * 0.19 - 0.09, k * 0.19 + 0.09, -0.08, 0.1, -0.9, 0.9, k % 2 ? PAL.plank : PAL.plank2);
-      b.box(-0.5, 0.5, 0.1, 0.14, -0.62, -0.5, PAL.wood).box(-0.5, 0.5, 0.1, 0.14, 0.5, 0.62, PAL.wood);
-      b.box(-0.22, 0.2, 0.14, 0.5, -0.4, 0.05, PAL.crateA).box(-0.2, 0.18, 0.5, 0.62, -0.35, 0.0, PAL.wheat);
-      b.box(-0.03, 0.03, 0.14, 1.15, 0.45, 0.51, PAL.post).box(0.03, 0.36, 0.86, 1.08, 0.47, 0.49, PAL.flag);
+    if (type === 'ttak') {
+      hull(b, 0.72, 1.9, 0.28, PAL.plank2, PAL.woodDark);
+      b.box(-0.7 / 2 - 0.01, 0.7 / 2 + 0.01, 0.2, 0.26, -0.95, 0.5, PAL.hullBlue);
+      b.box(-0.26, 0.26, 0.28, 0.7, -0.85, -0.35, PAL.plank).box(-0.27, 0.27, 0.5, 0.6, -0.86, -0.34, PAL.window).box(-0.3, 0.3, 0.7, 0.76, -0.9, -0.3, PAL.woodDark);
+      b.box(0.1, 0.18, 0.7, 1.15, -0.75, -0.67, PAL.funnel);
+      b.box(-0.24, 0.0, 0.28, 0.5, -0.1, 0.3, PAL.wall2).box(0.02, 0.26, 0.28, 0.46, -0.05, 0.35, PAL.wheat).box(-0.2, 0.2, 0.5, 0.66, 0.0, 0.25, PAL.crateA);
     } else if (type === 'hwangpo') {
       hull(b, 0.8, 2.4, 0.3, PAL.wood, PAL.woodDark);
       b.box(-0.3, 0.3, 0.3, 0.34, -1.0, 0.7, PAL.plank);
@@ -1107,8 +1170,8 @@ const P3 = (() => {
     const wm = mesh(wat, matWater, false); wm.name = 'water'; world.add(wm);
     // clickable buildings
     const add = (vb, kind, tab, label, pos) => { const m = mesh(vb); m.userData = { kind, tab }; world.add(m); picks.push(m); labels.push({ text: label, pos: new THREE.Vector3(...pos), tab }); return m; };
-    add(market(-7.5, -3.6), 'tab', 'port', '거래소', [-7.5, 3.4, -3.6]);
-    add(office(-1.5, -3.8), 'tab', 'cons', '해운 계약소', [-1.5, 3.7, -3.8]);
+    add(market(-7.5, -3.6), 'tab', 'cons', '화물 터미널', [-7.5, 3.4, -3.6]);
+    add(office(-1.5, -3.8), 'tab', 'port', '항만 사무소', [-1.5, 3.7, -3.8]);
     if (yard) add(shipyard(9.2, 0.4), 'tab', 'yard', '조선소', [9.2, 5.6, 2.5]);
     else { const w2 = new VB(); warehouse(w2, 4.5, -3.6); add(w2, 'tab', 'yard', '조선소 사무소', [4.5, 2.6, -3.6]); }
     // villagers walking the quay road
@@ -1124,18 +1187,18 @@ const P3 = (() => {
     }
     // passing traffic in the distance
     const lane = river ? 6.6 : 11.2;
-    for (let k = 0; k < (river ? 1 : 2); k++) { const m = new THREE.Mesh(shipGeo(k ? 'fishing' : (river ? 'raft' : 'hwangpo')), matVox); m.castShadow = true; m.rotation.y = Math.PI / 2; m.position.set(-14 + k * 15, -0.32, lane - k * 0.6); m.userData.v = 1.2 + k * 0.5; world.add(m); boats.push(m); }
+    for (let k = 0; k < (river ? 1 : 2); k++) { const m = new THREE.Mesh(shipGeo(k ? 'fishing' : (river ? 'ttak' : 'hwangpo')), matVox); m.castShadow = true; m.rotation.y = Math.PI / 2; m.position.set(-14 + k * 15, -0.32, lane - k * 0.6); m.userData.v = 1.2 + k * 0.5; world.add(m); boats.push(m); }
     scene.add(world);
     layout = { xs, L, river, lane };
     chip.innerHTML = `<b>${P.name}</b> ${river ? '나루' : '항구'} · 드래그로 회전 · 배와 건물을 누르면 열려요`;
   }
 
   function shipsHere(pid) {
-    if (!S) return { docked: [{ id: -1, type: 'raft' }, { id: -2, type: 'hwangpo' }, { id: -3, type: 'fishing' }], fishing: [], move: [] };
+    if (!S) return { docked: [{ id: -1, type: 'ttak' }, { id: -2, type: 'hwangpo' }, { id: -3, type: 'fishing' }], fishing: [], move: [] };
     const docked = [], fishing = [], move = [];
     for (const sh of S.ships) {
       if (sh.loc === pid && !sh.voy) (sh.mode === 'fishing' ? fishing : docked).push(sh);
-      else if (sh.voy && (sh.voy.from === pid || sh.voy.to === pid)) move.push(sh);
+      else if (sh.voy && (sh.voy.from === pid || sh.voy.to === pid) && sh.voy.segs) move.push(sh);
     }
     return { docked, fishing, move };
   }
@@ -1171,7 +1234,7 @@ const P3 = (() => {
     const pid = (S && UI.port) || (S ? S.home : 'mapo');
     const s1 = `${pid}|${S ? S.era : 0}|${S ? S.home : ''}`;
     if (s1 !== sig) { sig = s1; buildWorld(pid); shipSig = ''; }
-    const h = shipsHere(pid), s2 = [...h.docked.map(s => s.id + 'd'), ...h.fishing.map(s => s.id + 'f'), ...h.move.map(s => s.id + 'm' + s.voy.dep)].join(',');
+    const h = shipsHere(pid), s2 = [...h.docked.map(s => s.id + 'd'), ...h.fishing.map(s => s.id + 'f'), ...h.move.map(s => s.id + 'm' + s.voy.dep + s.voy.to)].join(',');
     if (s2 !== shipSig) { shipSig = s2; buildShips(pid); }
     renderLabels(pid);
   }
@@ -1230,7 +1293,8 @@ const P3 = (() => {
     if (S) for (const mv of moving) {
       const v = mv.sh.voy; if (!v) { mv.m.visible = false; continue; }
       // f = 0 at the pier, 1 at the island edge: leaving ships run 0→1, arriving ships 1→0
-      const leaving = v.from === here, f = leaving ? (UI.t - v.dep) / 1.3 : (v.arr - UI.t) / 1.3;
+      const spd = T(mv.sh).speed * 1.3, km = voyProg(mv.sh) * v.dist;
+      const leaving = v.from === here, f = leaving ? km / spd : (v.dist - km) / spd;
       if (f < 0 || f > 1) { mv.m.visible = false; continue; }
       const z = 3 + f * 12; mv.m.visible = true; mv.m.position.set(mv.x, -0.32, z); mv.m.rotation.y = leaving ? 0 : Math.PI;
       mv.m.scale.setScalar(1 - THREE.MathUtils.smoothstep(z, 10.5, 14.5));
@@ -1259,12 +1323,13 @@ const P3 = (() => {
 
 /* ================= PANELS ================= */
 function renderTop() {
-  $('#coName').textContent = S.name;
+  $('#coName').textContent = `${S.name} · ${ERA[S.era].name}`;
   $('#date').textContent = dateStr(S.day);
   const c = $('#sCash'); c.textContent = wonK(S.cash); c.className = S.cash < 0 ? 'neg' : '';
   $('#sNet').textContent = wonK(netWorth());
   $('#sIdx').innerHTML = `${S.idx.toFixed(2)} <span class="${S.idx >= 1 ? 'pos' : 'neg'}" style="font-size:11px">${S.idx >= 1.15 ? '호황' : S.idx <= 0.85 ? '불황' : '보통'}</span>`;
-  $('#sEra').textContent = ERA[S.era].name;
+  const o = oilLevel();
+  $('#sOil').innerHTML = `${won(BASE_FUEL * o)}<span style="font-size:11px" class="${o > 1.1 ? 'neg' : o < 0.9 ? 'pos' : 'muted'}">/t ${o > 1.3 ? '급등' : o > 1.1 ? '높음' : o < 0.9 ? '낮음' : ''}</span>`;
   $('#bPlay').textContent = UI.playing ? '❚❚' : '▶';
   $('#bPlay').classList.toggle('on', UI.playing);
   $('#bSpeed').textContent = UI.speed + '×';
@@ -1276,139 +1341,127 @@ function renderTop() {
   for (const b of document.querySelectorAll('#tabs button')) {
     b.classList.toggle('on', b.dataset.t === UI.tab);
     const dot = b.querySelector('.dot');
-    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role !== 'tour' && T(s).role !== 'bunker');
+    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role === 'cargo');
     if (idle && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
     if (!idle && dot) dot.remove();
   }
 }
+const wxTag = w => `<span class="wx w${w}">${WXN[w]}</span>`;
 function statusText(sh) {
-  if (sh.voy) { const left = Math.max(0, sh.voy.arr - S.day); return `항해 중 · ${PORTS[sh.voy.from].name} → ${PORTS[sh.voy.to].name} · ${left}일 남음`; }
+  if (sh.voy) { const v = sh.voy, left = Math.max(1, Math.ceil((v.dist - v.done) / Math.max(1, v.next))); return `항해 중 · ${PORTS[v.from].name} → ${PORTS[v.to].name} · 약 ${left}일`; }
   if (sh.mode === 'fishing') return `조업 중 · ${PORTS[sh.loc].name} 앞바다 · ${Math.max(0, sh.busy - S.day)}일 남음`;
   if (sh.mode === 'tour') return `관광 운영 · ${PORTS[sh.loc].name}`;
   if (sh.mode === 'bunker') return `급유 영업 · ${PORTS[sh.loc].name}`;
+  if (sh.mode === 'layup') return `계선(휴업) · ${PORTS[sh.loc].name}`;
+  if (sh.mode === 'react') return `재가동 중 · ${PORTS[sh.loc].name} · ${Math.max(0, sh.busy - S.day)}일`;
   return `정박 · ${PORTS[sh.loc].name}`;
+}
+function forecastCard() {
+  const areas = Object.keys(AREAS).filter(a => a !== 'near' || S.era >= 3);
+  return `<div class="card"><h3>해상 예보 · 강풍이면 느려지고 연료를 45% 더, 태풍이면 90% 더 씁니다</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>해역</th><th>오늘</th><th>내일</th><th>모레</th></tr></thead><tbody>${areas.map(a => `<tr><td class="gname">${AREAS[a]}</td>${[0, 1, 2].map(k => `<td>${wxTag(S.wx[a][k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+}
+function bars(sh) {
+  const t = T(sh); let h = '';
+  if (t.cap) h += `<div class="bar" title="적재"><i style="width:${Math.round(load(sh) / t.cap * 100)}%"></i></div>`;
+  if (t.tank) h += `<div class="bar fuel" title="연료"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div>`;
+  return h;
 }
 function fleetList() {
   let h = '';
-  if (S.tip && S.day < 60) h += `<div class="hint"><b>시작 가이드</b><ol><li>아래 배를 눌러 지금 항구에서 싼 화물을 삽니다. <span class="tag p">생산</span> 표시가 싼 곳입니다.</li><li>출항 목록에서 <b>예상 손익</b>이 큰 항구를 고릅니다.</li><li>도착하면 팔고, 돈이 모이면 <b>조선소</b>에서 배를 늘립니다.</li></ol></div>`;
+  if (S.tip && S.day < 60) h += `<div class="hint"><b>운송 가이드</b><ol><li>배를 누르면 이 항구에서 실을 수 있는 <b>운송 의뢰</b>가 <b>하루당 순이익</b> 순으로 나옵니다. 위에서부터 실으세요.</li><li>같은 목적지 의뢰를 여러 건 실으면 한 번 항해로 운임을 모두 받습니다.</li><li>연료(주황 막대)가 줄면 보충하고, 예보에 강풍이 있으면 연료가 더 듭니다. 불황에는 배를 <b>계선</b>해 비용을 줄이세요.</li></ol></div>`;
+  h += forecastCard();
   h += `<div class="list">`;
   for (const sh of S.ships) {
-    const t = T(sh), pct = t.cap ? Math.round(load(sh) / t.cap * 100) : 0;
-    h += `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년</small></div><div class="st">${statusText(sh)}</div>${t.cap ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''}</button>`;
+    const t = T(sh);
+    h += `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년 · 손익 <span class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</span></small></div><div class="st">${statusText(sh)}</div><div class="bars">${bars(sh)}</div></button>`;
   }
   h += `</div>`;
   if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
   return h;
 }
-function bestSale(sh, g, R) {
-  let best = null;
-  for (const p in R.dist) {
-    if (!PORTS[p] || p === sh.loc) continue;
-    const u = sellUnit(p, g);
-    if (!best || u > best.u) best = { p, u, d: days(R.dist[p], T(sh).speed) };
-  }
-  return best;
+function jobRow(c, sh, est) {
+  const fits = freeCap(sh) >= c.q;
+  return `<div class="con"><div class="l1"><span class="route">→ ${PORTS[c.to].name} <small>${GOODS[c.good].name} ${c.q}t</small></span><span class="pay">운임 ${won(c.pay)}</span></div>
+  <div class="costs"><span>${est.days}일 · ${nf(c.km)}km</span><span>연료 ${won(est.fuelCost)}</span><span>고정비·입항료 ${won(est.cost - est.fuelCost)}</span>${est.worst >= 2 ? `<span>${wxTag(est.worst)} 구간</span>` : ''}</div>
+  <div class="l1"><span class="net ${est.net >= 0 ? 'pos' : 'neg'}">순이익 ${sgn(est.net)} <small>(하루 ${sgn(est.perDay)})</small></span><span class="acts"><small class="muted">기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small><button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}" ${fits ? '' : 'disabled'}>${fits ? '싣기' : '공간 부족'}</button></span></div></div>`;
 }
 function shipDetail(sh) {
   const t = T(sh), docked = !!sh.loc && !sh.voy;
   let h = `<div class="dhead"><button class="back" data-act="back">← 선단</button><h2>${esc(sh.name)}</h2><span class="tag">${t.name}</span></div>`;
-  h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>유지비</small><b>${won(upkeep(sh))}/일</b></div><div><small>연식</small><b>${Math.floor(sh.age / 365)}년</b></div><div><small>항해 구역</small><b>${RANGE[t.range]}${t.river ? '·강' : ''}</b></div><div><small>매각가</small><b>${won(shipValue(sh))}</b></div></div>`;
-  h += `<div class="status">${statusText(sh)}</div>`;
-  const R = sh.loc ? routes(sh.loc, t) : null;
-  // cargo held
-  const held = Object.keys(sh.cargo);
-  if (!docked && (held.length || sh.cons.length)) {
-    h += `<div class="card"><h3>적재 화물</h3>${held.map(g => `<div class="row2"><b>${GOODS[g].name} ${sh.cargo[g].q}t</b><span class="muted">원가 ${won(sh.cargo[g].cost)}/t</span></div>`).join('')}${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t</b><span class="muted">계약 → ${PORTS[c.to].name} · ${won(c.pay)} · D${c.deadline - S.day >= 0 ? '-' + (c.deadline - S.day) : '+' + (S.day - c.deadline)}</span></div>`).join('')}</div>`;
+  h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>연료</small><b>${t.tank ? `${sh.fuel.toFixed(2)} / ${t.tank}t` : '돛(무연료)'}</b></div><div><small>연료 소모</small><b>${t.burn ? t.burn + 't/일' : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>고정비</small><b>${won(wage(sh))}/일</b></div><div><small>입항료</small><b>${won(portFee(t))}</b></div><div><small>매각가</small><b>${won(shipValue(sh))}</b></div><div><small>누적 손익</small><b class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</b></div></div>`;
+  h += `<div class="status">${statusText(sh)}${sh.voy ? ` · 남은 연료 ${sh.fuel.toFixed(2)}t · 현재 해역 ${AREAS[areaAt(sh.voy.segs, sh.voy.done)]} ${wxTag(wxNow(areaAt(sh.voy.segs, sh.voy.done)))}` : ''}</div>`;
+  if (sh.voy && sh.cons.length) h += `<div class="card"><h3>실은 화물</h3><div class="list">${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">운임 ${won(c.pay)} · 기한 ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">' + (S.day - c.deadline) + '일 지연</span>'}</span></div>`).join('')}</div></div>`;
+  if (!docked) return h;
+  const pid = sh.loc, P = PORTS[pid], busy = sh.mode === 'fishing' || sh.mode === 'react';
+  const area = portArea(pid);
+  h += `<div class="row2" style="font-size:13px"><span class="muted">${AREAS[area]} 예보</span>${[0, 1, 2].map(k => `${['오늘', '내일', '모레'][k]} ${wxTag(S.wx[area][k])}`).join(' ')}</div>`;
+  if (sh.mode === 'layup' || sh.mode === 'react') {
+    h += `<div class="card"><h3>계선 중</h3><p style="margin:0 0 8px">고정비가 ${won(fullWage(sh))} → ${won(wage(sh))}/일로 줄었습니다. 다시 운항하려면 재가동 비용과 2일이 듭니다.</p>${sh.mode === 'layup' ? `<button class="btn pri wide" data-act="react" data-id="${sh.id}" ${S.cash >= fullWage(sh) * 5 ? '' : 'disabled'}>재가동 · ${won(fullWage(sh) * 5)} · 2일</button>` : '<p class="muted" style="margin:0">재가동 중입니다.</p>'}</div>`;
+    return h;
   }
-  if (docked && sh.mode !== 'fishing') {
-    const pid = sh.loc, P = PORTS[pid];
-    if (t.cap) {
-      const goods = Object.keys(GOODS).filter(g => goodOpen(g) && canCarry(sh, g));
-      h += `<div class="card"><h3>${P.name} 시장 · 남은 공간 ${freeCap(sh)}t · 현금 ${won(S.cash)}</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>화물</th><th class="r">살 때</th><th class="r">팔 때</th><th class="r">보유</th><th class="r"></th></tr></thead><tbody>`;
-      for (const g of goods) {
-        const c = sh.cargo[g], mb = maxBuy(sh, g), q4 = Math.min(mb, Math.max(1, Math.ceil(freeCap(sh) / 4)));
-        const tag = P.prod.includes(g) ? '<span class="tag p">생산</span>' : P.dem.includes(g) ? '<span class="tag d">수요</span>' : '';
-        const b = bestSale(sh, g, R);
-        const hint = b ? `<span class="best">최고 ${PORTS[b.p].name} ${won(b.u)} · ${b.d}일</span>` : '';
-        h += `<tr><td class="gname">${GOODS[g].name}${tag}${hint}</td><td class="r num">${won(buyUnit(pid, g))}</td><td class="r num">${won(sellUnit(pid, g))}</td><td class="r num">${c ? `${c.q}t<span class="best">@${won(c.cost)}</span>` : '-'}</td><td class="r"><div class="acts"><button class="btn" data-act="buy" data-id="${sh.id}" data-g="${g}" data-q="${q4}" ${q4 > 0 && mb > 0 ? '' : 'disabled'}>¼</button><button class="btn pri" data-act="buy" data-id="${sh.id}" data-g="${g}" data-q="${mb}" ${mb > 0 ? '' : 'disabled'}>최대</button><button class="btn" data-act="sell" data-id="${sh.id}" data-g="${g}" ${c ? '' : 'disabled'}>팔기</button></div></td></tr>`;
-      }
-      h += `</tbody></table></div></div>`;
-      if (sh.cons.length) h += `<div class="card"><h3>수행 중인 계약</h3><div class="list">${sh.cons.map(c => conRow(c, null, true)).join('')}</div></div>`;
-      const here = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good) && R.dist[c.to] !== undefined);
-      if (here.length) h += `<div class="card"><h3>이 항구의 운임 계약</h3><div class="list">${here.map(c => conRow(c, sh)).join('')}</div></div>`;
-    }
-    if (t.role === 'fish') h += `<div class="card"><h3>조업</h3>${P.fish ? `<button class="btn pri wide" data-act="fish" data-id="${sh.id}" ${freeCap(sh) > 0 ? '' : 'disabled'}>${P.name} 앞바다로 조업 나가기 · 3일 · 생선 4~8t</button>` : `<p class="muted" style="margin:0">${P.name}에는 어장이 없습니다. 어장 항구: 인천, 군산, 목포, 제주, 여수, 통영, 부산${S.era >= 2 ? ', 울산, 포항, 동해' : ''}</p>`}</div>`;
-    if (t.role === 'tour') {
-      const inc = (P.tour || 0) * 60 * (0.7 + 0.3 * S.idx);
-      h += `<div class="card"><h3>관광 운영</h3>${P.tour ? (sh.mode === 'tour' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">운영 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="tour">낚시 관광 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">관광객이 없는 항구입니다. 제주·부산(★3), 여수·통영(★2)이 좋습니다.</p>`}</div>`;
-    }
-    if (t.role === 'bunker') {
-      const inc = (P.traffic || 0) * 260 * S.idx;
-      h += `<div class="card"><h3>급유 영업</h3>${P.traffic ? (sh.mode === 'bunker' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">영업 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="bunker">급유 영업 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">선박 왕래가 적은 항구입니다. 부산·인천이 가장 바쁩니다.</p>`}</div>`;
-    }
-    // destinations
-    const dests = Object.keys(R.dist).filter(p => PORTS[p] && p !== pid).map(p => {
-      let est = 0, has = false;
-      for (const g in sh.cargo) { const c = sh.cargo[g]; est += sellRev(p, g, c.q) - c.cost * c.q; has = true; }
-      let con = 0; for (const c of sh.cons) if (c.to === p) con += c.pay;
-      return { p, d: days(R.dist[p], t.speed), km: R.dist[p], est, has, con };
-    }).sort((a, b) => (b.est + b.con) - (a.est + a.con) || a.d - b.d);
-    h += `<div class="card"><h3>출항 · 목적지 ${dests.length}곳</h3><div class="dests">${dests.map(x => `<button class="dest" data-act="sail" data-id="${sh.id}" data-to="${x.p}"><b>${PORTS[x.p].name}</b><em class="${x.est + x.con >= 0 ? 'pos' : 'neg'}">${x.has || x.con ? sgn(x.est + x.con) : ''}</em><small>${x.d}일 · ${nf(x.km)}km</small>${x.con ? '<small style="text-align:right"><span class="tag a">계약</span></small>' : ''}</button>`).join('')}</div></div>`;
-    const canSell = !held.length && !sh.cons.length;
-    h += `<div class="card"><h3>매각</h3>${canSell ? (UI.confirm === 'sell' + sh.id ? `<div class="row2"><span>정말 ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>` : `<button class="btn" data-act="askSell" data-id="${sh.id}">${won(shipValue(sh))}에 매각</button>`) : '<p class="muted" style="margin:0">화물과 계약을 모두 비워야 매각할 수 있습니다.</p>'}</div>`;
+  if (t.tank && !busy) {
+    const fp = fuelPrice(pid), need = t.tank - sh.fuel;
+    const cheap = Object.keys(PORTS).filter(portOpen).reduce((a, p) => fuelPrice(p) < fuelPrice(a) ? p : a, pid);
+    h += `<div class="card"><h3>연료 · ${P.name} 기름값 ${won(fp)}/t</h3><div class="bar fuel" style="height:8px;margin-bottom:8px"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div><div class="row2"><button class="btn pri" data-act="fuel" data-id="${sh.id}" data-f="1" ${need > 0.001 ? '' : 'disabled'}>가득 채우기 ${won(need * fp)}</button><button class="btn" data-act="fuel" data-id="${sh.id}" data-f="0.5" ${sh.fuel < t.tank * 0.5 ? '' : 'disabled'}>절반까지 ${won(Math.max(0, t.tank * 0.5 - sh.fuel) * fp)}</button>${S.cash < need * fp ? `<small class="neg">현금 부족분은 외상(한도 ${won(creditLine())}, 하루 이자 0.1%)</small>` : ''}${cheap !== pid ? `<small class="muted">가장 싼 곳: ${PORTS[cheap].name} ${won(fuelPrice(cheap))}/t</small>` : '<small class="pos">여기가 가장 쌉니다</small>'}</div></div>`;
   }
-  if (docked && sh.mode === 'fishing') h += `<div class="card"><p class="muted" style="margin:0">조업에서 돌아오면 생선을 팔 수 있습니다. 내륙(마포·충주·대구)이 가장 비쌉니다.</p></div>`;
+  if (t.role === 'cargo') {
+    if (sh.cons.length) h += `<div class="card"><h3>실은 화물 ${load(sh)}t · 운임 합계 ${won(sh.cons.reduce((a, c) => a + c.pay, 0))}</h3><div class="list">${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${won(c.pay)} · 기한 ${c.deadline - S.day}일</span><button class="btn" data-act="unload" data-c="${c.id}" data-id="${sh.id}">내리기</button></div>`).join('')}</div></div>`;
+    const jobs = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good)).map(c => ({ c, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.perDay - a.e.perDay);
+    h += `<div class="card"><h3>${P.name} 운송 의뢰 ${jobs.length}건 · 남은 공간 ${freeCap(sh)}t · 하루 순이익 순</h3>${jobs.length ? `<div class="list">${jobs.map(x => jobRow(x.c, sh, x.e)).join('')}</div>` : '<p class="muted" style="margin:0">지금 이 배가 실을 수 있는 의뢰가 없습니다. 기다리거나, 의뢰가 많은 항구로 빈 배로 이동하세요(공선 항해).</p>'}</div>`;
+  }
+  if (t.role === 'fish') h += `<div class="card"><h3>조업</h3>${P.fish ? `<button class="btn pri wide" data-act="fish" data-id="${sh.id}">${P.name} 앞바다로 조업 · 3일 · 연료 약 ${(t.burn * 3).toFixed(2)}t · 생선 4~8t 위판</button>` : `<p class="muted" style="margin:0">${P.name}에는 어장이 없습니다. 어장 항구: 인천, 군산, 목포, 제주, 여수, 통영, 부산${S.era >= 2 ? ', 울산, 포항, 동해' : ''}</p>`}</div>`;
+  if (t.role === 'tour') { const inc = (P.tour || 0) * 60 * (0.7 + 0.3 * S.idx); h += `<div class="card"><h3>관광 운영</h3>${P.tour ? (sh.mode === 'tour' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">운영 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="tour">낚시 관광 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">관광객이 없는 항구입니다. 제주·부산(★3), 여수·통영(★2)이 좋습니다.</p>`}</div>`; }
+  if (t.role === 'bunker') { const inc = (P.traffic || 0) * 260 * S.idx * oilLevel(); h += `<div class="card"><h3>급유 영업</h3>${P.traffic ? (sh.mode === 'bunker' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">영업 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="bunker">급유 영업 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">선박 왕래가 적은 항구입니다. 부산·인천이 가장 바쁩니다.</p>`}</div>`; }
+  if (!busy) {
+    const R = routes(pid, t);
+    const dests = Object.keys(R.dist).filter(p => PORTS[p] && p !== pid).map(p => { const pl = plan(sh, p); const rev = sh.cons.filter(c => c.to === p).reduce((a, c) => a + c.pay, 0); return { p, pl, rev, net: rev - pl.cost }; })
+      .sort((a, b) => (b.rev > 0) - (a.rev > 0) || b.net - a.net || a.pl.days - b.pl.days);
+    h += `<div class="card"><h3>출항 · 예상 비용은 연료·고정비·입항료 합계</h3><div class="dests">${dests.map(x => { const short = t.burn && sh.fuel + 1e-6 < x.pl.fuel; return `<button class="dest${x.rev ? ' has' : ''}" data-act="sail" data-id="${sh.id}" data-to="${x.p}"><b>${PORTS[x.p].name}</b><em class="${x.net >= 0 ? 'pos' : 'neg'}">${sgn(x.net)}</em><small>${x.pl.days}일 · ${x.rev ? '운임 ' + won(x.rev) : '빈 배'}${x.pl.worst >= 2 ? ' · ' + WXN[x.pl.worst] : ''}</small><small style="text-align:right">${short ? '<span class="neg">연료 부족</span>' : t.burn ? x.pl.fuel.toFixed(2) + 't' : ''}</small></button>`; }).join('')}</div></div>`;
+    h += `<div class="card"><h3>계선(휴업)</h3><p class="muted" style="margin:0 0 8px">불황이거나 기름값이 비쌀 때 배를 묶어 두면 고정비가 4분의 1로 줄어듭니다. 다시 움직이려면 고정비 5일치와 2일이 듭니다.</p><button class="btn" data-act="layup" data-id="${sh.id}" ${sh.cons.length ? 'disabled' : ''}>계선하기 · 하루 ${won(fullWage(sh))} → ${won(fullWage(sh) * 0.25)}</button></div>`;
+    const canSell = !sh.cons.length;
+    h += `<div class="card"><h3>매각</h3>${canSell ? (UI.confirm === 'sell' + sh.id ? `<div class="row2"><span>정말 ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>` : `<button class="btn" data-act="askSell" data-id="${sh.id}">${won(shipValue(sh))}에 매각</button>`) : '<p class="muted" style="margin:0">실은 화물을 모두 내려야 매각할 수 있습니다.</p>'}</div>`;
+  }
   return h;
 }
-function conRow(c, sh, active) {
-  const left = active ? c.deadline - S.day : c.offer - S.day;
-  const meta = active ? `배달 기한 ${left >= 0 ? left + '일 남음' : '<span class="neg">' + (-left) + '일 지연</span>'}` : `배달 ${c.due}일 이내 · 수락 마감 ${left}일`;
-  let act = '';
-  if (!active && sh) act = `<button class="btn pri" data-act="accept" data-c="${c.id}" data-id="${sh.id}" ${freeCap(sh) >= c.q ? '' : 'disabled'}>${freeCap(sh) >= c.q ? '수락' : '공간 부족'}</button>`;
-  return `<div class="con"><div class="l1"><span class="route">${PORTS[c.from].name} → ${PORTS[c.to].name}</span><span class="pay">${won(c.pay)}</span></div><div class="l1"><small>${GOODS[c.good].name} ${c.q}t · ${nf(c.km)}km · ${meta}</small>${act}</div></div>`;
+function conRow(c) {
+  return `<div class="con"><div class="l1"><span class="route">${PORTS[c.from].name} → ${PORTS[c.to].name}</span><span class="pay">${won(c.pay)}</span></div><div class="l1"><small>${GOODS[c.good].name} ${c.q}t · ${nf(c.km)}km · 기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small></div></div>`;
 }
 function portPanel() {
   const pid = UI.port || S.home, P = PORTS[pid];
   let h = `<div class="row2"><select id="portSel" aria-label="항구 선택">${Object.keys(PORTS).map(p => `<option value="${p}" ${p === pid ? 'selected' : ''} ${portOpen(p) ? '' : 'disabled'}>${PORTS[p].name}${portOpen(p) ? '' : ` (${PORTS[p].era}시대)`}</option>`).join('')}</select></div>`;
   h += `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2></div>`;
-  h += `<div class="row2">${'<span class="tag">항구 규모 ' + '■'.repeat(P.size) + '</span>'}${P.fish ? '<span class="tag">어장</span>' : ''}${P.tour ? `<span class="tag">관광 ${'★'.repeat(P.tour)}</span>` : ''}${P.traffic ? `<span class="tag">교통량 ${'▲'.repeat(P.traffic)}</span>` : ''}</div>`;
-  if (!portOpen(pid)) return h + `<div class="card"><p class="muted" style="margin:0">${PORTS[pid].era}시대(${ERA[P.era].name})에 열립니다. 필요 순자산 ${won(ERA[P.era].need)}.</p></div>`;
-  h += `<div class="card"><h3>시세 (t당)</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>화물</th><th class="r">살 때</th><th class="r">팔 때</th><th class="r">기준가 대비</th></tr></thead><tbody>`;
-  for (const g of Object.keys(GOODS).filter(goodOpen)) {
-    const ratio = price(pid, g) / GOODS[g].base, pct = Math.round((ratio - 1) * 100);
-    const tag = P.prod.includes(g) ? '<span class="tag p">생산</span>' : P.dem.includes(g) ? '<span class="tag d">수요</span>' : '';
-    const ev = S.events.find(e => e.port === pid && e.good === g);
-    h += `<tr><td class="gname">${GOODS[g].name}${tag}${ev ? `<span class="tag a">${ev.f > 1 ? '급등' : '급락'}</span>` : ''}</td><td class="r num">${won(buyUnit(pid, g))}</td><td class="r num">${won(sellUnit(pid, g))}</td><td class="r num ${pct >= 0 ? 'neg' : 'pos'}">${pct >= 0 ? '+' : ''}${pct}%</td></tr>`;
-  }
-  h += `</tbody></table></div><p class="muted" style="margin:8px 0 0;font-size:12px">기준가보다 낮으면(초록) 사기 좋고, 높으면(빨강) 팔기 좋습니다.</p></div>`;
+  h += `<div class="row2"><span class="tag">항구 규모 ${'■'.repeat(P.size)}</span>${P.fish ? '<span class="tag">어장</span>' : ''}${P.tour ? `<span class="tag">관광 ${'★'.repeat(P.tour)}</span>` : ''}${P.traffic ? `<span class="tag">교통량 ${'▲'.repeat(P.traffic)}</span>` : ''}</div>`;
+  if (!portOpen(pid)) return h + `<div class="card"><p class="muted" style="margin:0">${P.era}시대(${ERA[P.era].name})에 열립니다. 필요 순자산 ${won(ERA[P.era].need)}.</p></div>`;
+  const area = portArea(pid);
+  h += `<div class="card kv"><div><small>기름값</small><b>${won(fuelPrice(pid))}/t</b></div><div><small>해역</small><b style="font-family:var(--f-body)">${AREAS[area]}</b></div><div><small>날씨 오늘·내일·모레</small><b style="font-family:var(--f-body)">${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</b></div><div><small>출발 화물</small><b>${S.contracts.filter(c => c.from === pid).length}건</b></div></div>`;
+  if (S.events.some(e => e.port === pid)) h += `<div class="hint">물동량 급증 중 — 이 항구에서 나가는 화물의 운임이 40% 높습니다.</div>`;
   const mine = S.ships.filter(s => s.loc === pid);
   h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3>${mine.length ? `<div class="list">${mine.map(sh => `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${T(sh).role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${T(sh).name}</small></div><div class="st">${statusText(sh)}</div></button>`).join('')}</div>` : '<p class="muted" style="margin:0">없음</p>'}</div>`;
-  const cons = S.contracts.filter(c => c.from === pid);
-  if (cons.length) h += `<div class="card"><h3>${P.name} 출발 계약</h3><div class="list">${cons.map(c => conRow(c, null)).join('')}</div></div>`;
+  const cons = S.contracts.filter(c => c.from === pid).sort((a, b) => b.pay - a.pay);
+  if (cons.length) h += `<div class="card"><h3>${P.name}에서 나가는 화물</h3><div class="list">${cons.map(conRow).join('')}</div></div>`;
   return h;
 }
 function consPanel() {
-  let h = `<p class="muted" style="margin:0">남의 화물을 기한 안에 날라주고 운임을 받습니다. 화물값이 들지 않고, 늦으면 운임이 절반입니다. 좋은 계약은 라이벌도 노립니다.</p>`;
+  let h = `<p class="muted" style="margin:0">모든 항구의 운송 의뢰입니다. 출발 항구에 내 배가 있으면 그 배 기준 순이익이 나옵니다. 기한을 넘기면 운임이 절반이고, 좋은 의뢰는 라이벌도 노립니다.</p>`;
   const act = S.ships.flatMap(sh => sh.cons.map(c => ({ c, sh })));
-  if (act.length) h += `<div class="card"><h3>수행 중 ${act.length}건</h3><div class="list">${act.map(({ c, sh }) => conRow(c, null, true).replace('</div></div>', `</div><small class="muted">${esc(sh.name)}</small></div>`)).join('')}</div></div>`;
+  if (act.length) h += `<div class="card"><h3>운송 중 ${act.length}건 · 운임 합계 ${won(act.reduce((a, x) => a + x.c.pay, 0))}</h3><div class="list">${act.map(({ c, sh }) => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${esc(sh.name)} · ${won(c.pay)} · ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">지연</span>'}</span></div>`).join('')}</div></div>`;
   const list = [...S.contracts].sort((a, b) => b.pay - a.pay);
-  h += `<div class="card"><h3>제안된 계약 ${list.length}건</h3><div class="list">`;
+  h += `<div class="card"><h3>운송 의뢰 ${list.length}건</h3><div class="list">`;
   for (const c of list) {
-    const ships = S.ships.filter(sh => sh.loc === c.from && !sh.voy && sh.mode !== 'fishing' && canCarry(sh, c.good) && freeCap(sh) >= c.q && routes(c.from, T(sh)).dist[c.to] !== undefined);
-    let row = conRow(c, null);
-    const btns = ships.length ? ships.slice(0, 3).map(sh => `<button class="btn pri" data-act="accept" data-c="${c.id}" data-id="${sh.id}">${esc(sh.name)}로 수락</button>`).join('') : `<small class="muted">${PORTS[c.from].name}에 실을 수 있는 배가 없음</small>`;
-    row = row.replace(/<\/div><\/div>$/, `</div><div class="acts" style="justify-content:flex-start">${btns}</div></div>`);
-    h += row;
+    const ships = S.ships.filter(sh => sh.loc === c.from && !sh.voy && sh.mode === 'idle' && T(sh).role === 'cargo' && canCarry(sh, c.good) && freeCap(sh) >= c.q);
+    const opts = ships.map(sh => ({ sh, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.net - a.e.net).slice(0, 2);
+    const btns = opts.length ? opts.map(({ sh, e }) => `<button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}">${esc(sh.name)}에 싣기 · 순이익 ${sgn(e.net)}</button>`).join('') : `<small class="muted">${PORTS[c.from].name}에 실을 수 있는 빈 배가 없음 · ${SHIPS[c.size] ? SHIPS[c.size].name + '급 화물' : ''}</small>`;
+    h += conRow(c).replace(/<\/div><\/div>$/, `</div><div class="acts" style="justify-content:flex-start">${btns}</div></div>`);
   }
   h += `</div></div>`;
   return h;
 }
 function yardPanel() {
-  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 유지비가 싸고 오래 씁니다. 중고선은 바로 쓰지만 연식만큼 유지비가 비쌉니다. 운임지수가 낮을 때(불황) 가격이 내려갑니다.</p>`;
+  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 고정비가 싸고 오래 씁니다. 중고선은 바로 쓰지만 연식만큼 고정비가 비쌉니다. 운임지수가 낮을 때(불황) 가격이 내려갑니다.</p>`;
   h += `<div class="card"><h3>신조 발주 · 현금 ${won(S.cash)}</h3><div class="yard">`;
   for (const [k, t] of Object.entries(SHIPS)) {
     const lock = t.era > S.era, cost = newPrice(t);
-    h += `<div class="ycard${lock ? ' locked' : ''}"><div class="t"><b>${t.name}</b><span class="tag">${ROLE[t.role]}</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>속도</dt><dd>${t.speed}km/일</dd><dt>유지비</dt><dd>${won(t.upkeep)}/일</dd><dt>구역</dt><dd>${RANGE[t.range]}${t.river ? ' + 강' : ''}</dd><dt>건조</dt><dd>${t.build}일</dd></dl>${lock ? `<span class="muted" style="font-size:12px">${t.era}시대 해금 · 순자산 ${won(ERA[t.era].need)}</span>` : `<button class="btn pri" data-act="order" data-type="${k}" ${S.cash >= cost ? '' : 'disabled'}>발주 ${won(cost)}</button>`}</div>`;
+    h += `<div class="ycard${lock ? ' locked' : ''}"><div class="t"><b>${t.name}</b><span class="tag">${ROLE[t.role]}</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>속도</dt><dd>${t.speed}km/일</dd><dt>고정비</dt><dd>${won(t.wage)}/일</dd><dt>연료</dt><dd>${t.burn ? t.burn + 't/일' : '돛(무연료)'}</dd><dt>구역</dt><dd>${RANGE[t.range]}${t.river ? ' + 강' : ''}</dd><dt>건조</dt><dd>${t.build}일</dd></dl>${lock ? `<span class="muted" style="font-size:12px">${t.era}시대 해금 · 순자산 ${won(ERA[t.era].need)}</span>` : `<button class="btn pri" data-act="order" data-type="${k}" ${S.cash >= cost ? '' : 'disabled'}>발주 ${won(cost)}</button>`}</div>`;
   }
   for (const L of LATER) h += `<div class="ycard locked"><div class="t"><b>${L.name}</b><span class="tag">본편</span></div><span class="muted" style="font-size:12px">${L.cap} · ${L.era}에 등장</span></div>`;
   h += `</div></div>`;
@@ -1416,7 +1469,7 @@ function yardPanel() {
   h += `<div class="card"><h3>중고선 시장 · ${30 - (S.day % 30)}일 뒤 매물 교체</h3><div class="yard">`;
   for (const L of S.used) {
     const t = SHIPS[L.type], cost = usedPrice(L);
-    h += `<div class="ycard"><div class="t"><b>${t.name}</b><span class="tag">${L.age}년</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>위치</dt><dd>${PORTS[L.loc].name}</dd><dt>유지비</dt><dd>${won(t.upkeep * (1 + 0.03 * L.age))}/일</dd><dt>신조가 대비</dt><dd>${Math.round(cost / newPrice(t) * 100)}%</dd></dl><button class="btn pri" data-act="buyused" data-u="${L.id}" ${S.cash >= cost ? '' : 'disabled'}>매입 ${won(cost)}</button></div>`;
+    h += `<div class="ycard"><div class="t"><b>${t.name}</b><span class="tag">${L.age}년</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>위치</dt><dd>${PORTS[L.loc].name}</dd><dt>고정비</dt><dd>${won(t.wage * (1 + 0.03 * L.age))}/일</dd><dt>신조가 대비</dt><dd>${Math.round(cost / newPrice(t) * 100)}%</dd></dl><button class="btn pri" data-act="buyused" data-u="${L.id}" ${S.cash >= cost ? '' : 'disabled'}>매입 ${won(cost)}</button></div>`;
   }
   if (!S.used.length) h += `<p class="muted">매물 없음</p>`;
   h += `</div></div>`;
@@ -1471,10 +1524,10 @@ function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="mbox">$
 function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
 function startModal(hasSave) {
   const pickBtn = (id, t, d) => `<button data-act="pickStart" data-p="${id}" class="${UI.startPick === id ? 'on' : ''}"><b>${t}</b><small>${d}</small></button>`;
-  modal(`<h1>선박왕</h1><p>강가의 원목선 한 척으로 시작해 동북아 바다를 누비는 선단을 만드세요. 화물을 싸게 사서 비싸게 팔고, 운임 계약을 따내고, 배를 사 모으면 라이벌 해운사 셋과의 순위 경쟁에서 1위를 노릴 수 있습니다.</p>
+  modal(`<h1>선박왕</h1><p>강가의 똑딱선 한 척으로 운송업을 시작해 동북아 바다를 누비는 선단을 만드세요. 화주의 화물을 날라 운임을 벌고, 기름값과 날씨를 따져 비용을 줄이고, 배를 늘려 라이벌 해운사 셋을 제치면 선박왕입니다.</p>
   ${hasSave ? `<button class="btn pri wide" data-act="continue">이어하기</button><p style="font-size:12px">또는 새 게임:</p>` : ''}
   <label for="coIn" style="font-weight:600;font-size:13px">회사 이름</label><input type="text" id="coIn" maxlength="12" value="한국해운">
-  <div class="starts">${pickBtn('mapo', '한강 · 마포', '여주 쌀, 충주 목재를 서울로. 안정적인 출발')}${pickBtn('gupo', '낙동강 · 구포', '긴 강과 많은 나루. 부산과 바로 연결')}</div>
+  <div class="starts">${pickBtn('mapo', '한강 · 마포', '짧은 강 항로. 서울로 가는 화물이 많음')}${pickBtn('gupo', '낙동강 · 구포', '긴 강과 많은 나루. 부산과 바로 연결')}</div>
   <button class="btn ${hasSave ? '' : 'pri'} wide" data-act="start">새 게임 시작</button>
   <p style="font-size:12px">프로토타입 · 1~3시대 · 진행은 이 브라우저에 자동 저장됩니다.</p>`);
 }
@@ -1483,13 +1536,13 @@ function eraModal() {
   const ships = Object.values(SHIPS).filter(t => t.era === S.era).map(t => t.name).join(', ');
   const ports = Object.values(PORTS).filter(p => p.era === S.era).map(p => p.name).join(', ');
   const goods = Object.values(GOODS).filter(g => g.era === S.era).map(g => g.name).join(', ');
-  modal(`<h1>${E.name}</h1><p>${S.name}의 순자산이 ${won(E.need)}을 넘었습니다. 시장이 커져 한 번에 더 많이 거래해도 값이 덜 흔들립니다.</p><div class="card kv" style="grid-template-columns:1fr"><div><small>새 선박</small><b style="font-family:var(--f-body)">${ships}</b></div><div><small>새 항구</small><b style="font-family:var(--f-body)">${ports}</b></div><div><small>새 화물</small><b style="font-family:var(--f-body)">${goods}</b></div></div>${S.era === 3 ? '<p>지도 오른쪽 위 「동북아」로 일본·중국 항로를 확인하세요.</p>' : ''}<button class="btn pri wide" data-act="close">계속</button>`);
+  modal(`<h1>${E.name}</h1><p>${S.name}의 순자산이 ${won(E.need)}을 넘었습니다. 더 크고 연료를 많이 쓰는 배와 더 먼 항로가 열립니다. 기름값이 운영에 더 크게 영향을 줍니다.</p><div class="card kv" style="grid-template-columns:1fr"><div><small>새 선박</small><b style="font-family:var(--f-body)">${ships}</b></div><div><small>새 항구</small><b style="font-family:var(--f-body)">${ports}</b></div><div><small>새 화물 종류</small><b style="font-family:var(--f-body)">${goods}</b></div></div>${S.era === 3 ? '<p>지도 오른쪽 위 「동북아」로 일본·중국 항로를 확인하세요.</p>' : ''}<button class="btn pri wide" data-act="close">계속</button>`);
 }
 function winModal() {
   modal(`<h1>선박왕 등극</h1><p>${dateStr(S.day)}, ${S.name}이(가) 순자산 ${won(netWorth())}으로 라이벌 해운사를 모두 제쳤습니다. 프로토타입의 목표를 달성했습니다. 계속 플레이할 수 있습니다.</p><button class="btn pri wide" data-act="close">계속 경영하기</button>`);
 }
 function overModal() {
-  modal(`<h1>파산</h1><p>순자산이 0 아래로 떨어졌습니다. 유지비가 수입보다 많은 배가 없는지 확인해 보세요.</p><button class="btn pri wide" data-act="restart">처음부터</button>`);
+  modal(`<h1>파산</h1><p>순자산이 0 아래로 떨어졌습니다. 고정비와 연료비가 운임보다 많은 배가 없는지, 불황에 계선을 했는지 확인해 보세요.</p><button class="btn pri wide" data-act="restart">처음부터</button>`);
 }
 
 /* ================= LOOP & INPUT ================= */
@@ -1509,7 +1562,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
-function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 1 ? s : null; } catch (e) { return null; } }
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 2 ? s : null; } catch (e) { return null; } }
 
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-act]'); if (!el) return;
@@ -1533,12 +1586,14 @@ document.addEventListener('click', ev => {
     case 'ship': UI.ship = id; UI.tab = 'fleet'; UI.confirm = null; if (sh && sh.loc) UI.port = sh.loc; break;
     case 'back': UI.ship = null; UI.confirm = null; break;
     case 'port': UI.port = el.dataset.p; UI.tab = 'port'; drawMap(); break;
-    case 'buy': if (sh) doBuy(sh, el.dataset.g, Number(el.dataset.q)); break;
-    case 'sell': if (sh) doSell(sh, el.dataset.g); break;
+    case 'fuel': if (sh) doRefuel(sh, Number(el.dataset.f)); break;
+    case 'load': if (sh) doLoad(Number(el.dataset.c), sh); break;
+    case 'unload': if (sh) doUnload(Number(el.dataset.c), sh); break;
+    case 'layup': if (sh) doLayup(sh); break;
+    case 'react': if (sh) doReactivate(sh); break;
     case 'sail': if (sh) doSail(sh, el.dataset.to); break;
     case 'fish': if (sh) doFish(sh); break;
     case 'mode': if (sh) sh.mode = el.dataset.m; break;
-    case 'accept': if (sh) doAccept(Number(el.dataset.c), sh); break;
     case 'order': doOrder(el.dataset.type); break;
     case 'buyused': doBuyUsed(el.dataset.u); break;
     case 'askSell': UI.confirm = 'sell' + id; break;
