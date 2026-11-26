@@ -73,15 +73,27 @@ async function open(browser, { width = 400, height = 860, dark = false, blockThr
     await page.click('[data-act=bld][data-b=""]'); await page.click('[data-act=bld][data-b=yard]');
     await page.click('[data-act=repair] >> nth=0');
     check('조선·정비소 수리 시작', await page.evaluate(() => S.ships.some(s => s.mode === 'repair')));
+    // the team's illustrations: home port picture with building signs, interiors, night picture
+    await page.click('[data-act=bld][data-b=""]').catch(() => {}); await page.click('#tabs [data-t=home]'); await page.waitForTimeout(400);
+    const art = await page.evaluate(() => ({ view: UI.view, src: $('#artImg').getAttribute('src'), pins: [...document.querySelectorAll('.artlab')].map(e => e.textContent) }));
+    check('모항 그림: 일러스트와 건물 표지', art.view === 'art' && /port_(day|night)/.test(art.src) && art.pins.some(t => t.startsWith('거래소')) && art.pins.some(t => t.includes('다방')), JSON.stringify(art));
+    await page.click('.artlab >> text=거래소');
+    check('그림 속 거래소 표지 → 거래소 실내 그림', await page.evaluate(() => UI.bld === 'exchange' && /in_exchange/.test($('#artImg').getAttribute('src')) && !!document.querySelector('.artsay')));
+    const loaded = await page.evaluate(() => new Promise(r => { const i = $('#artImg'); if (i.complete && i.naturalWidth) r(i.naturalWidth); else i.onload = () => r(i.naturalWidth); setTimeout(() => r(0), 3000); }));
+    check('그림 파일이 실제로 불러와짐', loaded > 0, `${loaded}px`);
+    await page.evaluate(() => { UI.dayMode = 'night'; openBld(''); render(); });
+    check('밤에는 밤 그림', await page.evaluate(() => /port_night/.test($('#artImg').getAttribute('src'))));
+    await page.evaluate(() => { UI.dayMode = 'day'; render(); });
     const has3d = await page.evaluate(() => P3.ok && p3Ready);
     if (has3d) {
-      await page.click('#tabs [data-t=home]'); await page.waitForTimeout(800);
+      await page.click('[data-act=portview][data-v="3d"]'); await page.waitForTimeout(800);
       const labels = await page.$$eval('.p3lab', els => els.map(e => e.textContent));
       await page.evaluate(() => { UI.dayMode = 'night'; render(); }); await page.waitForTimeout(300);
       check('낮밤: 밤으로 바꾸면 항구가 밤 하늘', await page.evaluate(() => document.querySelector('#p3').classList.contains('night')));
       check('3D 항구: 건물 표지 (거래소·닻 다방·조선·정비소)', labels.some(l => l.startsWith('거래소')) && labels.some(l => l.includes('다방')), labels.join(', '));
       await page.click('.p3lab >> nth=0'); const b = await page.evaluate(() => UI.bld);
       check('3D 항구: 거래소를 누르면 거래소가 열림', b === 'exchange', b);
+      await page.evaluate(() => { UI.port3d = false; openBld(''); render(); });
     } else console.log('   -   3D 라이브러리를 불러오지 못해 3D 항구 점검은 건너뜀 (THREE_JS 지정 또는 CDN 접속 필요)');
     const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check('휴대폰 400px에서 가로 스크롤 없음', wide <= 0, `넘침 ${wide}px`);
@@ -92,8 +104,11 @@ async function open(browser, { width = 400, height = 860, dark = false, blockThr
   { // 3D library unavailable → 2D chart instead
     const { page, errors } = await open(browser, { blockThree: true });
     await page.click('[data-act=start]'); await page.waitForTimeout(300);
-    const st = await page.evaluate(() => ({ view: UI.view, map: getComputedStyle(document.querySelector('#map')).visibility }));
-    check('3D 라이브러리를 못 불러오면 2D 지도로 대체', st.view !== 'port3d' && st.map === 'visible', JSON.stringify(st));
+    const st = await page.evaluate(() => ({ view: UI.view, art: !$('#art').hidden, toggle: !$('#portctl').hidden }));
+    check('3D 라이브러리를 못 불러와도 모항 그림이 나오고 3D 전환 버튼은 숨김', st.view === 'art' && st.art && !st.toggle, JSON.stringify(st));
+    await page.click('#tabs [data-t=map]');
+    check('3D 없이도 항로 지도', await page.evaluate(() => UI.view === 'kr' && getComputedStyle($('#map')).visibility === 'visible'));
+    await page.click('#tabs [data-t=home]');
     await page.click('.goal:visible .gbtn');
     check('3D 없이도 거래소가 열림', await page.evaluate(() => !!document.querySelector('.board')));
     check('페이지 오류 없음 (3D 없음)', errors.length === 0, errors.join(' | '));

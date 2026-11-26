@@ -31,30 +31,53 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .pos { color: var(--pos); } .neg { color: var(--neg); } .muted { color: var(--muted); }
 
-:root { --hud: rgba(16, 27, 38, 0.8); --hud-line: rgba(255, 255, 255, 0.13); --hud-ink: #f4ecd6; --hud-muted: #b8b09f; --gold: #f2c14e; --gold-ink: #2a1d00; }
+:root { --hud: rgba(28, 33, 38, 0.84); --hud-line: rgba(242, 193, 78, 0.28); --hud-ink: #f4ecd6; --hud-muted: #b8b09f; --gold: #f2c14e; --gold-ink: #2a1d00; }
+/* the working panel always wears the mockups' dark-wood glass, in light and dark mode alike */
+.sheet, .mbox {
+  --panel: rgba(44, 38, 32, 0.92); --panel-2: rgba(255, 244, 220, 0.05); --ink: #f2e9d6; --muted: #b9ac93; --line: rgba(255, 236, 200, 0.14);
+  --chip: rgba(255, 244, 220, 0.08); --brand: #e8b54a; --brand-ink: #2a1d00; --accent: #f2c14e; --pos: #8fdca6; --neg: #ff8f80; color-scheme: dark; color: var(--ink);
+}
+.app { background: #17130f; }
+.art { position: absolute; inset: 0; overflow: hidden; background: #1c2a2c; }
+.art[hidden] { display: none; }
+.artbg { position: absolute; inset: -30px; background-size: cover; background-position: center; filter: blur(18px) brightness(0.7); }
+.art img { position: absolute; left: 0; top: 0; transform-origin: 0 0; user-select: none; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 7%, #000 93%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 7%, #000 93%, transparent 100%); }
+.artov { position: absolute; inset: 0; pointer-events: none; }
+.artlab { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); pointer-events: auto; border: 1px solid var(--gold); background: rgba(28, 24, 20, 0.86); color: var(--gold); font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 8px; box-shadow: 0 3px 10px rgb(0 0 0 / 0.35); white-space: nowrap; }
+.artlab:hover, .artlab.on { background: var(--gold); color: var(--gold-ink); }
+.artlab .bang { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; border-radius: 9px; background: var(--gold); color: var(--gold-ink); font-size: 11px; font-family: var(--f-num); }
+.artlab:hover .bang { background: var(--gold-ink); color: var(--gold); }
+.artsay { position: absolute; left: max(10px, env(safe-area-inset-left, 0px)); bottom: 54px; pointer-events: auto; display: flex; gap: 10px; align-items: flex-start; max-width: min(380px, 80vw); background: rgba(28, 33, 38, 0.88); color: var(--hud-ink); border: 1px solid var(--hud-line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 4px 14px rgb(0 0 0 / 0.35); }
+.artsay b { display: inline-block; color: var(--gold); font-size: 12.5px; border: 1px solid var(--hud-line); border-radius: 6px; padding: 1px 8px; margin-bottom: 4px; }
+.artsay p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.face { flex: none; width: 52px; height: 52px; border-radius: 8px; border: 1.5px solid var(--gold); background-image: url(assets/faces.jpg); background-size: 900% 100%; background-repeat: no-repeat; }
+.face.sm { width: 36px; height: 36px; border-width: 1px; }
+.who { display: flex; gap: 10px; align-items: center; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: #0e1822; }
 /* stage = the scene (3D home port or chart) under a glass HUD; sheet = the working panel */
 .app { display: grid; grid-template-columns: minmax(0, 1fr); }
 .stage { position: relative; height: 62vh; min-height: 400px; max-height: 660px; background: var(--sea); overflow: hidden; }
-.sheet { padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; align-content: start; min-width: 0; }
+.sheet { background: linear-gradient(180deg, #221d18, #17130f); padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; align-content: start; min-width: 0; }
 @media (min-width: 960px) {
   .app { grid-template-columns: minmax(0, 1fr) 450px; height: 100vh; }
   .stage { height: 100vh; max-height: none; }
-  .sheet { height: 100vh; overflow-y: auto; border-left: 1px solid var(--line); }
+  .sheet { height: 100vh; overflow-y: auto; border-left: 1px solid rgba(242, 193, 78, 0.25); }
 }
 .hudwrap { position: absolute; z-index: 3; top: calc(8px + env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); display: grid; gap: 8px; pointer-events: none; }
 .hud { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .hud > *, .under > * { pointer-events: auto; }
 .glass { background: var(--hud); color: var(--hud-ink); border: 1px solid var(--hud-line); border-radius: 10px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .brand { padding: 5px 12px; display: flex; align-items: baseline; gap: 8px; }
-.brand b { font-family: var(--f-display); font-size: 20px; color: var(--gold); font-weight: 400; letter-spacing: 0.02em; }
-.brand span { font-size: 12px; color: var(--hud-muted); white-space: nowrap; }
+.brand b { font-family: var(--f-display); font-size: 21px; color: var(--gold); font-weight: 400; letter-spacing: 0.02em; }
+.brand span { font-size: 12.5px; color: var(--hud-muted); white-space: nowrap; border-left: 1px solid var(--hud-line); padding-left: 9px; }
 .tabs3 { display: flex; padding: 3px; gap: 3px; }
 .tabs3 button { border: 0; background: none; color: var(--hud-ink); padding: 6px 13px; border-radius: 7px; font-weight: 700; font-size: 13.5px; position: relative; }
-.tabs3 button.on { background: var(--gold); color: var(--gold-ink); }
+.tabs3 button.on { background: rgba(242, 193, 78, 0.16); color: var(--gold); box-shadow: inset 0 0 0 1.5px var(--gold); }
 .tabs3 .dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--mine); }
-.chips { display: flex; gap: 2px; padding: 3px; margin-left: auto; }
-.chip { padding: 1px 8px; display: grid; text-align: center; }
+.chips { display: flex; gap: 4px; padding: 4px; margin-left: auto; }
+.chip { padding: 1px 9px; display: grid; text-align: center; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 7px; background: rgba(255, 255, 255, 0.04); }
+.chip b { color: var(--gold); }
 .chip small { font-size: 10.5px; color: var(--hud-muted); }
 .chip b { font-family: var(--f-num); font-size: 13.5px; white-space: nowrap; }
 .chip b.neg { color: #ff8a80; }
@@ -108,8 +131,11 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .bld:hover { border-color: var(--brand); }
 .bld b { font-size: 14.5px; } .bld small { color: var(--muted); font-size: 12px; }
 .bld.locked { opacity: 0.6; }
-.board { background: color-mix(in srgb, #e8dcbc 55%, var(--panel)); border-color: color-mix(in srgb, #b49a62 55%, var(--line)); }
-.board .con { background: color-mix(in srgb, #fffaf0 70%, var(--panel)); }
+.board { background: #2c3a31; border: 6px solid #7a5532; box-shadow: inset 0 0 30px rgb(0 0 0 / 0.35); }
+.board > h3, .board > p { color: #e6eadf !important; }
+.board .con { --ink: #2a2116; --muted: #6b5d45; --pos: #1d6b3f; --neg: #a3241c; --line: #cdbb95; --chip: #e2d3ad; --panel: #f3e8cc; color: var(--ink); background: #f3e8cc; border: 0; border-radius: 3px; box-shadow: 0 2px 4px rgb(0 0 0 / 0.35); position: relative; }
+.board .con::before { content: ""; position: absolute; top: -4px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: #c0392b; box-shadow: 0 1px 2px rgb(0 0 0 / 0.4); }
+.board .con:nth-child(odd) { transform: rotate(-0.4deg); } .board .con:nth-child(even) { transform: rotate(0.35deg); }
 .trip { width: 100%; border-collapse: collapse; font-size: 14px; }
 .trip td { padding: 5px 0; border-bottom: 1px dashed var(--line); }
 .trip td.r { text-align: right; font-family: var(--f-num); }
@@ -227,7 +253,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
 #modal[hidden] { display: none; }
 .mbox { background: var(--panel); border-radius: 14px; padding: 20px; width: min(100%, 460px); max-height: 92vh; overflow-y: auto; display: grid; gap: 12px; border: 1px solid var(--line); }
-.mbox h1 { font-family: var(--f-display); font-size: 34px; margin: 0; font-weight: 400; letter-spacing: 0.01em; }
+.mbox h1 { font-family: var(--f-display); font-size: 34px; margin: 0; font-weight: 400; letter-spacing: 0.01em; color: var(--gold); }
 .mbox p { margin: 0; color: var(--muted); }
 .starts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .starts button { text-align: left; border: 2px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 10px; display: grid; gap: 2px; }
@@ -258,6 +284,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 <div class="app">
   <section class="stage" id="stage">
     <svg id="map" role="img" aria-label="항구와 항로 지도"></svg>
+    <div id="art" class="art" hidden><div class="artbg" id="artBg"></div><img id="artImg" alt="" draggable="false"><div class="artov" id="artOv"></div></div>
     <div id="p3" class="p3" hidden></div>
     <div class="legend" id="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
     <div class="hudwrap">
@@ -271,6 +298,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
       <div class="under">
         <div class="goal glass" id="goal" hidden></div>
         <div class="mapctl glass" id="mapctl" hidden><button data-act="mapview" data-v="kr" id="vKr">국내</button><button data-act="mapview" data-v="nea" id="vNea">동북아</button></div>
+        <div class="mapctl glass" id="portctl" hidden><button data-act="portview" data-v="art" id="vArt">그림</button><button data-act="portview" data-v="3d" id="v3d">3D</button></div>
       </div>
     </div>
     <div class="clock glass">
@@ -305,9 +333,11 @@ function toast(t) {
 const VIEWS = { kr: [490, 236, 362, 518], nea: [30, 80, 1300, 900] };
 function landPath(poly) { return 'M' + poly.map(([la, lo]) => proj(la, lo).map(v => v.toFixed(1)).join(',')).join('L') + 'Z'; }
 function drawMap() {
-  const in3d = UI.view === 'port3d' && P3.ok && p3Ready;
-  $('#map').style.visibility = in3d ? 'hidden' : 'visible';
-  $('#legend').hidden = in3d;
+  const inArt = UI.view === 'art', in3d = UI.view === 'port3d' && P3.ok && p3Ready;
+  $('#art').hidden = !inArt;
+  $('#map').style.visibility = in3d || inArt ? 'hidden' : 'visible';
+  $('#legend').hidden = in3d || inArt;
+  if (inArt) { P3.hide(); drawArt(); return; }
   if (in3d) { P3.show(); return; }
   P3.hide();
   if (UI.view === 'port3d') UI.view = UI.mapView;
@@ -789,7 +819,7 @@ const P3 = (() => {
   function sync() {
     if (!visible || !renderer) return;
     const pid = (S && UI.port) || (S ? S.home : 'mapo');
-    const s1 = `${pid}|${S ? S.era : 0}|${S ? S.home : ''}`;
+    const s1 = `${pid}|${S ? S.era : 0}|${S ? S.home : ''}`; // eslint-disable-line
     if (s1 !== sig) { sig = s1; buildWorld(pid); shipSig = ''; }
     const h = shipsHere(pid), s2 = [...h.docked.map(s => s.id + 'd'), ...h.fishing.map(s => s.id + 'f'), ...h.move.map(s => s.id + 'm' + s.voy.dep + s.voy.to)].join(',');
     if (s2 !== shipSig) { shipSig = s2; buildShips(pid); }
@@ -880,6 +910,78 @@ const P3 = (() => {
   return { ok: true, init, show, hide, sync, frame, night: setNight };
 })();
 
+/* ================= ART · the team's illustrations as living scenes =================
+   Each scene is one image plus things pinned to spots in it (building signs to press, a speech box).
+   focus = the part that must stay in view on any screen; the rest may be cut off or letterboxed over a blurred copy. */
+const ART = {
+  port: { avoid: true, src: () => isNight() ? 'assets/port_night.jpg' : 'assets/port_day.jpg', w: 1376, h: 768, focus: [540, 60, 1300, 540],
+    pins: () => {
+      const pid = UI.port || S.home, n = S.contracts.filter(c => c.from === pid).length, tn = S.tender, mine = S.ships.filter(s => s.loc === pid).length;
+      return [
+        { x: 640, y: 92, b: 'teahouse', t: '닻 다방' },
+        { x: 935, y: 150, b: 'yard', t: '조선·정비소' },
+        { x: 1088, y: 250, b: 'exchange', t: '거래소', bang: (tn && tn.state === 'open' && !tn.bid ? '입찰 ' : '') + n },
+        { x: 600, y: 600, act: 'tab', t: `정박 중인 내 배 ${mine}척`, data: 'data-t="fleet"' },
+      ];
+    } },
+  exchange: { src: () => 'assets/in_exchange.jpg', w: 1070, h: 768, focus: [330, 60, 1070, 640],
+    pins: () => [{ x: 930, y: 200, ex: 'cargo', t: '화물 벽보' }, { x: 790, y: 130, ex: 'sp', t: '중고선 매매' }, { x: 700, y: 300, ex: 'tender', t: '입찰' }],
+    say: { x: 24, y: 520, face: 6, who: '거래소 서기 박씨', line: () => exchangeLine() } },
+  teahouse: { src: () => 'assets/in_teahouse.jpg', w: 1236, h: 768, focus: [150, 60, 1236, 700],
+    pins: () => [{ x: 470, y: 200, t: '선장 구인', go: 'capt' }],
+    say: { x: 14, y: 548, face: 7, who: '다방 주인 김씨', line: () => teaLine() } },
+  yard: { src: () => isNight() ? 'assets/port_night.jpg' : 'assets/port_day.jpg', w: 1376, h: 768, focus: [760, 110, 1110, 380],
+    pins: () => [], say: { x: 1080, y: 120, face: 8, who: '정비소 반장 최씨', line: () => yardLine() } },
+};
+function exchangeLine() {
+  const tn = S.tender, pid = UI.port || S.home;
+  if (tn && tn.state === 'open' && !tn.bid) return `${tn.shipper}에서 ${GOODS[tn.good].name} ${nf(tn.q)}t 입찰을 붙였소. 마감까지 ${tn.close - S.day}일이오.`;
+  if (tn && tn.state === 'won') return `입찰 물량 ${nf(tn.q - tn.delivered)}t 남았소. 기한은 ${tn.due - S.day}일. 늦으면 위약금이오.`;
+  const n = S.contracts.filter(c => c.from === pid).length;
+  return n ? `오늘 벽보에 ${n}건 붙었소. 하루에 얼마 남는지 보고 고르시오.` : '오늘은 벽보가 비었소. 하루 이틀 기다리거나 큰 항구로 가 보시오.';
+}
+function teaLine() {
+  const free = S.ships.filter(s => T(s).role === 'cargo' && !s.capt).length;
+  return free ? `선장 없는 배가 ${free}척 있네요. 기름 아끼는 분, 거친 날씨에 강한 분, 빨리 모는 분이 와 계세요.` : '배마다 선장님이 계시네요. 30일마다 새 얼굴이 와요.';
+}
+function yardLine() {
+  const pid = UI.port || S.home, worn = S.ships.filter(s => s.loc === pid && s.cond < 60);
+  if (!yardAt(pid)) return '여긴 작은 나루라 정비소가 없소. 큰 항구나 모항으로 오시오.';
+  return worn.length ? `${worn.map(s => s.name).join(', ')} 선체가 많이 닳았소. 고치는 동안은 못 나가오.` : '배들 상태가 괜찮소. 새 배가 필요하면 말하시오.';
+}
+const faceStyle = i => `background-position:${(i / 8) * 100}% 0`;
+const faceOf = k => Number(String(k.id).replace(/\D/g, '')) * 7 % 6;
+const faceTag = (i, sm) => `<span class="face${sm ? ' sm' : ''}" style="${faceStyle(i)}" aria-hidden="true"></span>`;
+// which illustrated scene the stage shows now
+function artScene() { if (UI.tab === 'home' && UI.bld && ART[UI.bld]) return UI.bld; return 'port'; }
+let artKey = '';
+function drawArt() {
+  const sc = ART[artScene()], src = sc.src(), img = $('#artImg'), box = $('#art');
+  if (img.getAttribute('src') !== src) { img.setAttribute('src', src); $('#artBg').style.backgroundImage = `url(${src})`; }
+  const W = box.clientWidth, H = box.clientHeight; if (!W || !H) return;
+  // the free area under the HUD (and the goal card) and above the clock
+  // with the goal card on the stage (wide screens) the free area is to its right, under the top bar
+  const B = box.getBoundingClientRect(), card = $('.under .goal'), cardOn = !!sc.avoid && card && !card.hidden && card.offsetWidth > 0;
+  const top = Math.max(0, (cardOn ? $('.hud') : $('.hudwrap')).getBoundingClientRect().bottom - B.top + 4), bot = H - 48, AH = Math.max(120, bot - top);
+  const left = cardOn ? card.getBoundingClientRect().right - B.left + 8 : 0, AW = Math.max(160, W - left);
+  const [fx0, fy0, fx1, fy1] = sc.focus, cover = Math.max(W / sc.w, H / sc.h);
+  const k = Math.min(cover, AW / (fx1 - fx0), AH / (fy1 - fy0));
+  // centre the focus box in the free area, then slide so the picture covers the stage where it can
+  let ox = left + AW / 2 - (fx0 + fx1) / 2 * k, oy = top + AH / 2 - (fy0 + fy1) / 2 * k;
+  const iw = sc.w * k, ih = sc.h * k;
+  ox = iw >= W ? clamp(ox, W - iw, 0) : clamp(ox, 0, W - iw); oy = ih >= H ? clamp(oy, H - ih, 0) : clamp(oy, 0, H - ih);
+  img.style.cssText = ''; img.style.width = sc.w + 'px'; img.style.transform = `translate(${ox}px, ${oy}px) scale(${k})`;
+  // signs stay on screen even when their building is cut off at the edge
+  const at = (x, y) => `left:${clamp(ox + x * k, 70, W - 70)}px;top:${clamp(oy + y * k, top + 30, bot - 8)}px`;
+  let h = (sc.pins ? sc.pins() : []).map(pn => {
+    const attrs = pn.b ? `data-act="bld" data-b="${pn.b}"` : pn.ex ? `data-act="extab" data-x="${pn.ex}"` : pn.go ? `data-act="artgo" data-g="${pn.go}"` : `data-act="${pn.act}" ${pn.data || ''}`;
+    const on = pn.ex && UI.exTab === pn.ex;
+    return `<button class="artlab${on ? ' on' : ''}" style="${at(pn.x, pn.y)}" ${attrs}>${pn.t}${pn.bang ? ` <span class="bang">${pn.bang}</span>` : ''}</button>`;
+  }).join('');
+  if (sc.say) { const y = sc.say; h += `<div class="artsay">${faceTag(y.face)}<div><b>${y.who}</b><p>${y.line()}</p></div></div>`; }
+  $('#artOv').innerHTML = h;
+}
+
 /* ================= PANELS ================= */
 // small amounts (a river boat's captain earns under ₩1 a day) keep one decimal
 const wonS = n => Math.abs(n) < 10 ? '₩' + n.toFixed(1) : won(n);
@@ -894,8 +996,10 @@ function renderTop() {
   $('#bPlay').classList.toggle('on', UI.playing);
   $('#bSpeed').textContent = UI.speed + '×';
   $('#bSnd').classList.toggle('on', SND.on);
-  const inMap = UI.view !== 'port3d';
+  const inMap = UI.view !== 'port3d' && UI.view !== 'art';
   $('#mapctl').hidden = !inMap;
+  $('#portctl').hidden = inMap || !(P3.ok && p3Ready) || (UI.tab === 'home' && !!UI.bld);
+  $('#vArt').classList.toggle('on', UI.view === 'art'); $('#v3d').classList.toggle('on', UI.view === 'port3d');
   $('#vKr').classList.toggle('on', UI.mapView === 'kr');
   $('#vNea').classList.toggle('on', UI.mapView === 'nea');
   const tn = S.tender, bidDue = tn && tn.state === 'open' && !tn.bid;
@@ -1034,7 +1138,7 @@ function shipDetail(sh) {
   h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>연료</small><b>${t.tank ? `${sh.fuel.toFixed(2)} / ${t.tank}t` : '돛(무연료)'}</b></div><div><small>연료 소모</small><b>${t.burn ? t.burn + 't/일' : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>고정비</small><b>${won(wage(sh))}/일</b></div><div><small>입항료</small><b>${won(portFee(t))}</b></div><div><small>매각가(시세)</small><b>${won(shipValue(sh))}</b></div><div><small>장부가</small><b>${won(bookValue(sh))}</b></div><div><small>누적 손익</small><b class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</b></div></div>`;
   h += `<div class="status">${statusText(sh)}${sh.voy ? ` · 남은 연료 ${sh.fuel.toFixed(2)}t · 현재 해역 ${AREAS[areaAt(sh.voy.segs, sh.voy.done)]} ${wxTag(wxNow(areaAt(sh.voy.segs, sh.voy.done)))}` : ''}</div>`;
   h += `<div class="card"><h3>선체 상태 ${Math.round(sh.cond)} / 100${sh.cond < 40 ? ' · <span class="neg">고장 위험</span>' : sh.cond < 60 ? ' · 연료를 더 씀' : ''}</h3><div class="bar hull${sh.cond < 40 ? ' bad' : ''}" style="height:8px;margin-bottom:8px"><i style="width:${Math.round(sh.cond)}%"></i></div><p class="muted" style="margin:0;font-size:12.5px">항해할수록 닳고 강풍·태풍에서 더 닳습니다. 낮을수록 연료를 더 쓰고(지금 +${Math.round((condFuel(sh) - 1) * 100)}%), 40 아래에서는 기관 고장이 나며, 20 아래면 정비소가 있는 항구로만 갈 수 있습니다. ${docked && yardAt(sh.loc) && sh.cond < 99.5 ? `<button class="btn" data-act="bld" data-b="yard" data-p="${sh.loc}" style="margin-top:6px">${PORTS[sh.loc].name} 조선·정비소에서 수리 →</button>` : docked && !yardAt(sh.loc) ? `수리는 규모가 큰 항구나 모항의 정비소에서 합니다.` : ''}</p></div>`;
-  if (t.role === 'cargo') h += sh.capt ? `<div class="card"><h3>선장 ${esc(sh.capt.name)} · ${CAPTAINS[sh.capt.kind].name}</h3><p style="margin:0 0 8px">${CAPTAINS[sh.capt.kind].skill}: ${CAPTAINS[sh.capt.kind].desc}. 급여 하루 ${wonS(capWage(sh))}.</p><button class="btn" data-act="fire" data-id="${sh.id}">하선시키기</button></div>` : `<div class="card"><h3>선장 없음</h3><p class="muted" style="margin:0 0 8px">닻 다방에서 선장을 고용하면 연료비·속도·악천후 손실이 달라집니다.</p><button class="btn" data-act="bld" data-b="teahouse" data-id="${sh.id}">닻 다방에서 선장 찾기 →</button></div>`;
+  if (t.role === 'cargo') h += sh.capt ? `<div class="card"><div class="who" style="margin-bottom:8px">${faceTag(faceOf(sh.capt))}<h3 style="margin:0">선장 ${esc(sh.capt.name)} · ${CAPTAINS[sh.capt.kind].name}</h3></div><p style="margin:0 0 8px">${CAPTAINS[sh.capt.kind].skill}: ${CAPTAINS[sh.capt.kind].desc}. 급여 하루 ${wonS(capWage(sh))}.</p><button class="btn" data-act="fire" data-id="${sh.id}">하선시키기</button></div>` : `<div class="card"><h3>선장 없음</h3><p class="muted" style="margin:0 0 8px">닻 다방에서 선장을 고용하면 연료비·속도·악천후 손실이 달라집니다.</p><button class="btn" data-act="bld" data-b="teahouse" data-id="${sh.id}">닻 다방에서 선장 찾기 →</button></div>`;
   if (t.role === 'cargo') h += routeCard(sh);
   if (sh.lastTrip) { const L = sh.lastTrip; h += `<div class="status">지난 항차 ${PORTS[L.from].name} → ${PORTS[L.to].name} · ${L.days}일 · 운임 ${won(L.freight)} · 순이익 <b class="${L.net >= 0 ? 'pos' : 'neg'}">${sgn(L.net)}</b></div>`; }
   if (!docked) return h + loadedCard(sh);
@@ -1060,19 +1164,20 @@ function shipDetail(sh) {
 const BLD = {
   exchange: { name: '거래소', role: '화물 벽보 · 입찰 · 중고선 매매', who: '거래소 서기 박씨', intro: '어서 오시오. 벽보에 붙은 의뢰를 골라 배에 실으면 되오. 배달하면 운임을 받고, 기한을 지키면 화주들이 당신 회사를 믿게 되지. 28일마다 큰 화주가 입찰을 붙이니 그것도 챙기시오.' },
   yard: { name: '조선·정비소', role: '수리 · 신조 발주', who: '정비소 반장 최씨', intro: '배는 바다에 나갈수록 닳소. 선체가 낮으면 기름을 더 먹고, 40 아래면 기관이 서기도 하지. 여기서 고치는 동안은 출항 못 하오. 새 배도 여기서 주문받소.' },
-  teahouse: { name: '닻 다방', role: '선장 구인 · 시황 소문 · 검사 · 보험', who: '다방 마담', intro: '선장님들이 여기서 일감을 기다리지요. 기름을 아끼는 분, 거친 날씨에 강한 분, 빨리 모는 분이 있어요. 소문 듣기와 선박 검사, 보험은 곧 시작해요.' },
+  teahouse: { name: '닻 다방', role: '선장 구인 · 시황 소문 · 검사 · 보험', who: '다방 주인 김씨', intro: '선장님들이 여기서 일감을 기다리지요. 기름을 아끼는 분, 거친 날씨에 강한 분, 빨리 모는 분이 있어요. 소문 듣기와 선박 검사, 보험은 곧 시작해요.' },
 };
 // first visit: a short hello from the person who runs the building; later visits go straight in
+const STAFF_FACE = { exchange: 6, teahouse: 7, yard: 8 };
 function introCard(b) {
   if (S.seen[b]) return '';
-  return `<div class="card intro"><h3>${BLD[b].who}</h3><p style="margin:0 0 8px">「${BLD[b].intro}」</p><button class="btn" data-act="seen" data-b="${b}">알겠어요</button></div>`;
+  return `<div class="card intro"><div class="who">${faceTag(STAFF_FACE[b])}<h3 style="margin:0">${BLD[b].who}</h3></div><p style="margin:8px 0">「${BLD[b].intro}」</p><button class="btn" data-act="seen" data-b="${b}">알겠어요</button></div>`;
 }
 function teahousePanel() {
   const ships = S.ships.filter(s => T(s).role === 'cargo');
   const pick = UI.capShip && ships.find(s => s.id === UI.capShip) || ships.find(s => !s.capt) || ships[0];
   let h = `<div class="card"><h3>선장 구인 · ${30 - (S.day % 30)}일 뒤 새 얼굴 · 고용할 배</h3>${ships.length ? `<div class="seg">${ships.map(s => `<button data-act="capship" data-id="${s.id}" class="${pick && s.id === pick.id ? 'on' : ''}">${esc(s.name)}${s.capt ? ' ✓' : ''}</button>`).join('')}</div>` : '<p class="muted">화물선이 없습니다.</p>'}</div>`;
   if (pick && pick.capt) h += `<div class="hint">${esc(pick.name)}에는 이미 ${esc(pick.capt.name)} 선장(${CAPTAINS[pick.capt.kind].name})이 있습니다. 새로 고용하면 이전 선장은 내립니다.</div>`;
-  h += `<div class="yard">${S.capPool.map(k => { const C = CAPTAINS[k.kind]; return `<div class="ycard"><div class="t"><b>${esc(k.name)} 선장</b><span class="tag cap">${C.name}</span></div><p style="margin:0;font-size:13px">${C.skill}: ${C.desc}</p>${pick ? `<dl><dt>고용비</dt><dd>${won(capFee(pick))}</dd><dt>급여</dt><dd>${wonS(fullWage(pick) * 0.03)}/일</dd></dl><button class="btn pri" data-act="hire" data-k="${k.id}" data-id="${pick.id}" ${S.cash >= capFee(pick) ? '' : 'disabled'}>${esc(pick.name)}에 태우기</button>` : ''}</div>`; }).join('') || '<p class="muted">지금은 일감을 찾는 선장이 없습니다.</p>'}</div>`;
+  h += `<div class="yard">${S.capPool.map(k => { const C = CAPTAINS[k.kind]; return `<div class="ycard"><div class="t who">${faceTag(faceOf(k))}<b style="flex:1">${esc(k.name)} 선장</b><span class="tag cap">${C.name}</span></div><p style="margin:0;font-size:13px">${C.skill}: ${C.desc}</p>${pick ? `<dl><dt>고용비</dt><dd>${won(capFee(pick))}</dd><dt>급여</dt><dd>${wonS(fullWage(pick) * 0.03)}/일</dd></dl><button class="btn pri" data-act="hire" data-k="${k.id}" data-id="${pick.id}" ${S.cash >= capFee(pick) ? '' : 'disabled'}>${esc(pick.name)}에 태우기</button>` : ''}</div>`; }).join('') || '<p class="muted">지금은 일감을 찾는 선장이 없습니다.</p>'}</div>`;
   h += `<div class="card"><h3>준비 중 (다음 단계)</h3><p class="muted" style="margin:0">시황 소문 듣기, 선박 검사 등급(갑·을·병), 태풍 피해를 보장하는 선체 보험.</p></div>`;
   return h;
 }
@@ -1271,13 +1376,14 @@ function renderPanel() {
 }
 // which scene sits behind the HUD: the home port in 3D, or the chart
 function wantedView() {
-  if (!P3.ok || !p3Ready) return UI.mapView;
   if (UI.tab === 'map') return UI.mapView;
   if (UI.tab === 'fleet') { const sh = S && S.ships.find(s => s.id === UI.ship); if (sh && !sh.loc) return UI.mapView; }
-  return 'port3d';
+  // the port: the illustration by default; 3D when chosen (and available); always the picture inside buildings
+  if (UI.port3d && P3.ok && p3Ready && !(UI.tab === 'home' && UI.bld)) return 'port3d';
+  return 'art';
 }
 function syncView() { const v = wantedView(); if (v !== UI.view) { UI.view = v; drawMap(); } }
-function render() { syncView(); renderTop(); renderPanel(); if (UI.view !== 'port3d') { drawBadges(); drawShips(); } P3.sync(); }
+function render() { syncView(); renderTop(); renderPanel(); if (UI.view === 'art') drawArt(); else if (UI.view !== 'port3d') { drawBadges(); drawShips(); } P3.sync(); }
 
 /* ================= MODALS ================= */
 function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="mbox">${html}</div>`; m.hidden = false; }
@@ -1305,7 +1411,7 @@ function tripModal(sh, t) {
   const low = T(sh).tank && sh.fuel < T(sh).tank * 0.4;
   modal(`<h1 style="font-size:22px">항차 정산 · ${esc(sh.name)}</h1><p style="margin:0 0 8px">${PORTS[t.from].name} → ${P.name} · ${t.days}일 · 화물 ${t.jobs}건${t.late ? ` (지연 ${t.late}건, 운임 절반)` : ''}</p>
   <table class="trip">${row('운임 수입', t.freight, 1)}${row(`연료비 (${t.fuelT.toFixed(2)}t)`, t.fuelCost, -1)}${row('고정비 (선원·관리)', t.wage, -1)}${row('입항료', t.fee, -1)}${t.extra ? row('예인·수리', t.extra, -1) : ''}<tr class="sum"><td>이번 항차 순이익</td><td class="r ${t.net >= 0 ? 'pos' : 'neg'}">${sgn(t.net)}</td></tr></table>
-  ${t.capt ? `<p class="pos" style="margin:8px 0 0;font-size:13px">${CAPTAINS[t.capt].skill}(${esc(sh.capt ? sh.capt.name : '')} 선장): ${t.capt === 'swift' ? `약 ${t.capDays.toFixed(1)}일 빨리 도착` : `연료비 ${won(t.capSave)} 절약`}</p>` : ''}
+  ${t.capt && sh.capt ? `<div class="who" style="margin-top:8px">${faceTag(faceOf(sh.capt), true)}<p class="pos" style="margin:0;font-size:13px">${CAPTAINS[t.capt].skill}(${esc(sh.capt ? sh.capt.name : '')} 선장): ${t.capt === 'swift' ? `약 ${t.capDays.toFixed(1)}일 빨리 도착` : `연료비 ${won(t.capSave)} 절약`}</p></div>` : ''}
   <p class="muted" style="font-size:12.5px;margin:6px 0 0">선체 상태 ${Math.round(t.cond + t.wear)} → ${Math.round(t.cond)}${t.cond < 40 ? ' · <span class="neg">고장 위험, 수리가 필요합니다</span>' : t.cond < 60 ? ' · 수리를 생각할 때입니다' : ''} · 화주 신뢰 ${Math.round(S.trust)}</p>
   <p class="muted" style="font-size:12.5px;margin:8px 0">${t.net >= 0 ? (t.freight ? '운임이 비용을 넘었습니다. 돌아오는 길에도 짐을 실으면 이익이 더 커집니다.' : '') : t.freight ? '비용이 운임보다 컸습니다. 하루 순이익이 높은 의뢰를 고르거나 연료가 싼 항구에서 채우세요.' : '빈 배 이동은 비용만 듭니다. 화물이 많은 항구로 옮길 때만 쓰세요.'}</p>
   ${here ? '' : `<p class="hint" style="margin:0 0 8px">${P.name}에는 지금 이 배가 실을 화물이 없습니다. 하루 이틀 기다리면 새 의뢰가 붙고, 급하면 빈 배로 화물이 많은 항구(부산·인천 등)로 옮길 수 있습니다.</p>`}<h3>다음 선택</h3><div class="nexts">
@@ -1334,7 +1440,7 @@ function frame(ts) {
     if (!UI.playing) UI.t = Math.min(UI.t, S.day + 0.999);
     if (ticked) render();
   }
-  if (S && UI.view !== 'port3d') drawShips();
+  if (S && UI.view !== 'port3d' && UI.view !== 'art') drawShips();
   P3.frame(dt);
   requestAnimationFrame(frame);
 }
@@ -1360,6 +1466,8 @@ document.addEventListener('click', ev => {
     case 'speed': UI.speed = SPEEDS[(SPEEDS.indexOf(UI.speed) + 1) % SPEEDS.length]; break;
     case 'step': setPlaying(false); tick(); UI.t = S.day; break;
     case 'mapview': UI.mapView = el.dataset.v; UI.view = ''; break;
+    case 'portview': UI.port3d = el.dataset.v === '3d'; try { localStorage.setItem('shipking-3d', UI.port3d ? '1' : '0'); } catch (e) {} break;
+    case 'artgo': if (el.dataset.g === 'capt') document.querySelector('.yard')?.scrollIntoView({ behavior: 'smooth' }); return;
     case 'p3tab': openBld(el.dataset.t); SND.play('click'); break;
     case 'bld': openBld(el.dataset.b, el.dataset.p, id); if (el.dataset.b === 'teahouse' && id) UI.capShip = id; break;
     case 'extab': UI.exTab = el.dataset.x; break;
@@ -1436,7 +1544,9 @@ function openBld(b, port, shipId) {
 }
 let p3Ready = false;
 function start(data) {
-  try { UI.dayMode = localStorage.getItem('shipking-day') || 'auto'; } catch (e) {}
+  try { UI.dayMode = localStorage.getItem('shipking-day') || 'auto'; UI.port3d = localStorage.getItem('shipking-3d') === '1'; } catch (e) {}
+  $('#artImg').addEventListener('load', () => { if (S && UI.view === 'art') drawArt(); });
+  new ResizeObserver(() => { if (S && UI.view === 'art') drawArt(); }).observe($('#art'));
   // the engine reports events; the screen decides how to show them
   Object.assign(HOOK, {
     toast, sound: k => SND.play(k), pause: () => setPlaying(false), save,
@@ -1455,7 +1565,7 @@ function start(data) {
   });
   if (!p3Ready && UI.view === 'port3d') UI.view = UI.mapView;
   if (data && data.S) { S = data.S; Object.assign(UI, data.UI || {}); UI.playing = false; UI.view = ''; render(); }
-  else { if (p3Ready) { $('#map').style.visibility = 'hidden'; $('#legend').hidden = true; P3.show(); } startModal(!!loadSave()); }
+  else { $('#map').style.visibility = 'hidden'; $('#legend').hidden = true; $('#art').hidden = false; $('#artImg').src = 'assets/port_day.jpg'; $('#artImg').style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:72% 40%'; $('#artBg').style.backgroundImage = 'url(assets/port_day.jpg)'; startModal(!!loadSave()); }
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.snapshot?.(() => ({ S, UI: { tab: UI.tab, bld: UI.bld, ship: UI.ship, port: UI.port, mapView: UI.mapView, speed: UI.speed, t: UI.t, metrics: UI.metrics } }));
