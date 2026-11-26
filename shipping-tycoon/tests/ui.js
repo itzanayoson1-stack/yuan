@@ -52,12 +52,33 @@ async function open(browser, { width = 400, height = 860, dark = false, blockThr
     check('회사 장부: 운송·부가 수입과 선박 매매가 따로', await page.evaluate(() => /운송 수입/.test(document.body.textContent) && /부가 수입/.test(document.body.textContent) && /선박 매입/.test(document.body.textContent)));
     await page.click('#tabs [data-t=home]'); await page.click('[data-act=bld][data-b=exchange]'); await page.click('[data-act=extab][data-x=sp]');
     check('거래소 중고선 매매 탭', await page.evaluate(() => /매물/.test($('#panel').textContent)));
+    await page.click('[data-act=extab][data-x=tender]');
+    check('거래소 입찰 탭 (다음 공고 안내)', await page.evaluate(() => /입찰/.test($('#panel').textContent) && /28일마다/.test($('#panel').textContent)));
     await page.click('[data-act=bld][data-b=""]'); await page.click('[data-act=bld][data-b=teahouse]');
-    check('닻 다방은 준비 중 안내', await page.evaluate(() => /준비 중/.test($('#panel').textContent)));
+    check('닻 다방: 첫 방문 소개와 선장 구인', await page.evaluate(() => !!document.querySelector('.intro') && document.querySelectorAll('[data-act=hire]').length === 3));
+    await page.click('[data-act=seen]');
+    check('소개는 한 번 보면 다시 안 나옴', await page.evaluate(() => !document.querySelector('.intro')));
+    await page.evaluate(() => { S.cash = 5000; render(); });
+    await page.click('[data-act=hire] >> nth=0');
+    check('선장 고용 → 배에 선장', await page.evaluate(() => !!S.ships[0].capt));
+    // tender: force a notice, bid, and see the result
+    await page.evaluate(() => { S.ships.push(Object.assign(JSON.parse(JSON.stringify(S.ships[0])), { id: 99, name: '똑딱 2호', capt: null, loc: S.home, voy: null, cons: [] })); const t = newTender(0.2, 0.5); t.rival = 0.5; t.from = S.home; S.tender = t; render(); });
+    await page.click('[data-act=bld][data-b=""]'); await page.click('[data-act=bld][data-b=exchange]'); await page.click('[data-act=extab][data-x=tender]');
+    await page.click('[data-act=bid][data-b=mid]');
+    check('입찰 응찰', await page.evaluate(() => S.tender.bid === 'mid'));
+    await page.evaluate(() => { for (let i = 0; i < 6; i++) tick(); render(); });
+    check('낙찰 → 입찰 화물이 벽보에', await page.evaluate(() => S.tender.state === 'won' && S.contracts.some(c => c.kind === 'tender')));
+    // yard: worn ship can be repaired, then cannot sail
+    await page.evaluate(() => { const sh = S.ships.find(s => s.loc === S.home && !s.voy && !s.cons.length); sh.cond = 50; sh.mode = 'idle'; UI.port = S.home; render(); });
+    await page.click('[data-act=bld][data-b=""]'); await page.click('[data-act=bld][data-b=yard]');
+    await page.click('[data-act=repair] >> nth=0');
+    check('조선·정비소 수리 시작', await page.evaluate(() => S.ships.some(s => s.mode === 'repair')));
     const has3d = await page.evaluate(() => P3.ok && p3Ready);
     if (has3d) {
       await page.click('#tabs [data-t=home]'); await page.waitForTimeout(800);
       const labels = await page.$$eval('.p3lab', els => els.map(e => e.textContent));
+      await page.evaluate(() => { UI.dayMode = 'night'; render(); }); await page.waitForTimeout(300);
+      check('낮밤: 밤으로 바꾸면 항구가 밤 하늘', await page.evaluate(() => document.querySelector('#p3').classList.contains('night')));
       check('3D 항구: 건물 표지 (거래소·닻 다방·조선·정비소)', labels.some(l => l.startsWith('거래소')) && labels.some(l => l.includes('다방')), labels.join(', '));
       await page.click('.p3lab >> nth=0'); const b = await page.evaluate(() => UI.bld);
       check('3D 항구: 거래소를 누르면 거래소가 열림', b === 'exchange', b);

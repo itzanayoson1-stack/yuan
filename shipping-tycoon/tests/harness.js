@@ -11,6 +11,8 @@ const EXPORTS = [
   'doRefuel', 'doLoad', 'doUnload', 'doSail', 'doFish', 'doLayup', 'doReactivate', 'doOrder', 'doBuyUsed', 'doSellShip',
   'T', 'load', 'freeCap', 'canCarry', 'fuelPrice', 'oilLevel', 'creditLine', 'shipValue', 'bookValue', 'newPrice', 'fullWage', 'wage', 'portFee',
   'portOpen', 'portArea', 'dateOf', 'isValidSave',
+  'GRADES', 'CAPTAINS', 'KINDS', 'doRepair', 'doHire', 'doFire', 'doBid', 'doRoute', 'tenderOdds', 'tenderScore', 'tenderCapacity', 'newTender',
+  'lotQ', 'lotPay', 'fits', 'yardAt', 'repairCost', 'repairDays', 'fleetCount', 'fleetLimit', 'capFee', 'capWage', 'dayStep', 'addTrust', 'checkGrade', 'nearestYard', 'CAPT_FX',
 ];
 
 function loadEngine() {

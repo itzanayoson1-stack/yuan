@@ -18,10 +18,10 @@ const rand = () => mulberry('rs');
 const mrand = () => mulberry('ms');
 const mgauss = () => (mrand() + mrand() + mrand() - 1.5) * 2;
 /* ================= DATA ================= */
-const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v4', SAVE_VERSION = 4;
+const START_YEAR = 1955, GOAL = 1000000, SAVE_KEY = 'shipking-proto-v5', SAVE_VERSION = 5;
 const ERA = [null,
   { name: '강의 시대', need: 0 },
-  { name: '연안의 시대', need: 20000 },
+  { name: '연안의 시대', need: 25000 },
   { name: '근해의 시대', need: 200000 },
 ];
 // 화물 종류: rate = 운임 배율 (생선은 상하기 쉬워 비싸고 기한이 짧다)
@@ -52,6 +52,29 @@ const LATER = [
   { name: '케이프사이즈 벌크', cap: '150,000t', era: '4시대' }, { name: '대형 컨테이너선', cap: '80,000t', era: '4시대' },
   { name: 'VLCC', cap: '300,000t', era: '4시대' }, { name: 'LNG선', cap: '170,000㎥', era: '5시대' },
 ];
+// 회사 등급: 화주 신뢰와 배달 실적으로 오르고, 등급이 보유 선대(발주 포함)의 한도를 정한다
+const GRADES = [null,
+  { name: '나루 상회', fleet: 2, need: 0, trust: 0 },
+  { name: '연안 해운', fleet: 3, need: 8, trust: 52 },
+  { name: '해운 회사', fleet: 5, need: 25, trust: 55 },
+  { name: '중견 선사', fleet: 8, need: 60, trust: 58 },
+  { name: '대형 선사', fleet: 14, need: 150, trust: 60 },
+  { name: '해운 그룹', fleet: 40, need: 350, trust: 62 },
+];
+// 선장 3종. 급여는 배 고정비의 3%, 고용비는 고정비 8일치
+const CAPTAINS = {
+  eco: { name: '연비형', skill: '기관 관리', desc: '연료 소모 40% 감소' },
+  storm: { name: '악천후형', skill: '황천 항해', desc: '강풍·태풍 때 느려지는 정도와 추가 연료가 절반, 태풍 피해 확률 절반' },
+  swift: { name: '납기형', skill: '항로 단축', desc: '속도 12% 증가 (하루 연료는 5% 더) · 3일 넘는 항로에서 효과' },
+};
+const CAPT_FX = { eco: 0.6, swift: 1.12, swiftFuel: 1.05 }; // tuned by tests/balance.js
+const CAP_NAMES = [['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임', '한', '오'], ['도윤', '만석', '덕수', '영철', '순돌', '병철', '상훈', '기수', '춘식', '태호', '봉구', '창수']];
+// 의뢰 종류. 단기·장거리는 거리로 나뉘는 일반 의뢰, 긴급·정기는 화주 신뢰가 쌓이면 열린다
+const KINDS = {
+  short: { name: '단기 연안' }, long: { name: '장거리 대량' },
+  urgent: { name: '긴급', trust: 55 }, regular: { name: '정기 운송', trust: 65 }, tender: { name: '입찰 화물' },
+};
+const TRUST0 = 50, TENDER_EVERY = 28, TENDER_DAYS = 28, BID_MUL = { low: 0.9, mid: 1, high: 1.15 }, BID_SCORE = { low: 1.25, mid: 1, high: 0.75 };
 const ROLE = { cargo: '운송', fish: '조업', tour: '관광', bunker: '급유' };
 const RANGE = ['하천', '연안', '근해'];
 // 날씨: 0 맑음 1 흐림 2 강풍 3 태풍 — 속도·연료 배율
@@ -216,8 +239,18 @@ function oilLevel() { return S.oil + S.oilShock; }
 // 외상(운영자금) 한도: 선박 가치의 30%까지 연료를 외상으로 살 수 있다
 function creditLine() { return S.ships.reduce((a, sh) => a + shipValue(sh), 0) * 0.3; }
 const portFee = t => Math.round(5 + t.cap * 0.4);
-const wage = sh => T(sh).wage * (1 + 0.03 * sh.age / 365) * (sh.mode === 'layup' ? 0.2 : 1);
 const fullWage = sh => T(sh).wage * (1 + 0.03 * sh.age / 365);
+const capWage = sh => sh.capt ? fullWage(sh) * 0.03 : 0;
+const capFee = sh => Math.round(fullWage(sh) * 8);
+const wage = sh => fullWage(sh) * (sh.mode === 'layup' ? 0.2 : 1) + capWage(sh);
+const dayCost = sh => fullWage(sh) + capWage(sh); // a working day: crew + captain
+// 선체 상태(내구도) 0~100: 낮을수록 연료를 더 쓰고(100→60이면 +16%), 40 아래에서는 고장이 나고, 20 아래면 정비소가 있는 항구로만 갈 수 있다
+const condFuel = sh => 1 + (100 - (sh.cond ?? 100)) / 100 * 0.4;
+const yardAt = pid => PORTS[pid].size >= 2 || pid === S.home;
+const repairCost = sh => Math.round(T(sh).price * (100 - sh.cond) / 100 * 0.12);
+const repairDays = sh => Math.max(1, Math.ceil((100 - sh.cond) / 15));
+const fleetCount = () => S.ships.length + S.orders.length;
+const fleetLimit = () => GRADES[S.grade].fleet;
 function load(sh) { let u = 0; for (const c of sh.cons) u += c.q; for (const g in sh.cargo) u += sh.cargo[g].q; return u; }
 const freeCap = sh => T(sh).cap - load(sh);
 function typeCarries(t, g) { return !!t.cls && t.cls.includes(GOODS[g].cls); }
@@ -243,11 +276,16 @@ function segsOf(path) {
   return segs;
 }
 const areaAt = (segs, km) => (segs.find(s => km < s.to) || segs[segs.length - 1]).area;
-function dayStep(t, area, k, laden) {
-  const w = wxNow(area, k);
-  const spd = t.speed * (t.sail ? WX_SAIL[w] : WX_SPD[w]);
-  const fuel = t.burn * WX_FUEL[w] * (laden ? 1 : 0.8);
-  return { spd, fuel, w };
+// one sailing day on the forecast. With the ship given, its captain and hull condition count;
+// base = the same day without the captain, for the settlement card
+function dayStep(t, area, k, laden, sh) {
+  const w = wxNow(area, k), c = sh && sh.capt ? sh.capt.kind : null;
+  let sm = t.sail ? WX_SAIL[w] : WX_SPD[w], fm = WX_FUEL[w];
+  const base = { spd: t.speed * sm, fuel: t.burn * fm * (laden ? 1 : 0.8) * (sh ? condFuel(sh) : 1) };
+  if (c === 'storm' && w >= 2) { sm = 1 - (1 - sm) / 2; fm = 1 + (fm - 1) / 2; }
+  const spd = t.speed * sm * (c === 'swift' ? CAPT_FX.swift : 1);
+  const fuel = t.burn * fm * (laden ? 1 : 0.8) * (c === 'eco' ? CAPT_FX.eco : c === 'swift' ? CAPT_FX.swiftFuel : 1) * (sh ? condFuel(sh) : 1);
+  return { spd, fuel, w, base };
 }
 const PLAN_CACHE = {};
 function plan(sh, to, extraQ = 0) {
@@ -258,14 +296,19 @@ function plan(sh, to, extraQ = 0) {
   const path = geo.path, segs = geo.segs, dist = R.dist[to];
   const laden = load(sh) + extraQ > 0;
   let done = 0, d = 0, fuel = 0, worst = 0;
-  while (done < dist && d < 60) { const st = dayStep(t, areaAt(segs, done), d, laden); done += st.spd; fuel += st.fuel; worst = Math.max(worst, st.w); d++; }
+  while (done < dist && d < 60) { const st = dayStep(t, areaAt(segs, done), d, laden, sh); done += st.spd; fuel += st.fuel; worst = Math.max(worst, st.w); d++; }
   const fp = fuelPrice(sh.loc);
-  const cost = fuel * fp + fullWage(sh) * d + portFee(t);
+  const cost = fuel * fp + dayCost(sh) * d + portFee(t);
   return { path, segs, dist, days: d, fuel, worst, cost, fuelCost: fuel * fp };
 }
+// how much of a job this ship would take: tender cargo can be split, other jobs go whole
+const lotQ = (sh, c) => c.kind === 'tender' ? Math.min(c.q, freeCap(sh)) : c.q;
+const lotPay = (sh, c) => c.kind === 'tender' ? Math.round(lotQ(sh, c) * c.rate) : c.pay;
+const fits = (sh, c) => c.kind === 'tender' ? freeCap(sh) > 0 && c.q > 0 : c.q <= freeCap(sh);
 function jobNet(sh, c) {
-  const p = plan(sh, c.to, c.q); if (!p) return null;
-  const pay = c.pay;
+  const q = lotQ(sh, c); if (q <= 0) return null;
+  const p = plan(sh, c.to, q); if (!p) return null;
+  const pay = lotPay(sh, c);
   return { ...p, pay, net: pay - p.cost, perDay: (pay - p.cost) / p.days };
 }
 
@@ -279,12 +322,13 @@ function newGame(name, home, seed) {
     v: SAVE_VERSION, seed: S.rs, name: name || '한국해운', home, day: 0, cash: 600, era: 1, idx: 1, shock: 0, phase: mrand() * 6.28, oil: 1, oilShock: 0,
     ships: [], seq: {}, sid: 1, uid: 1, contracts: [], cid: 1, used: [], orders: [], events: [], wx: {},
     rivals: RIVALS.map(r => ({ ...r })), news: [], hist: [], won: false, over: false, autoPause: true, tip: true,
+    trust: TRUST0, grade: 1, capPool: [], kid: 1, tender: null, tenders: 0, autoOK: false, seen: {},
     // company-wide ledger for reports and balance KPIs
-    stats: { freight: 0, other: 0, fuel: 0, wage: 0, fees: 0, repair: 0, voyages: 0, ballast: 0, late: 0, delivered: 0, trips: 0, shipBuy: 0, shipSell: 0 },
+    stats: { freight: 0, other: 0, fuel: 0, wage: 0, fees: 0, repair: 0, voyages: 0, ballast: 0, late: 0, delivered: 0, trips: 0, shipBuy: 0, shipSell: 0, hire: 0, capSave: 0, tenderWon: 0, tenderLost: 0, tenderDone: 0, tenderFail: 0, penalty: 0 },
   });
   for (const a in AREAS) { S.wx[a] = [0]; S.wx[a].push(nextWx(a, 0, 1)); S.wx[a].push(nextWx(a, S.wx[a][1], 2)); }
   addShip('ttak', home, 0);
-  refreshUsed();
+  refreshUsed(); refreshCaptains();
   for (let i = 0; i < 12; i++) genContract();
   for (let i = 0; i < 3; i++) genContract(home, 'ttak');
   // the first voyage must be possible: make sure the starting boat has at least one paying job at home
@@ -296,8 +340,14 @@ function newGame(name, home, seed) {
 }
 function addShip(type, loc, ageDays) {
   const t = SHIPS[type]; S.seq[type] = (S.seq[type] || 0) + 1;
-  const sh = { id: S.sid++, type, name: `${t.short} ${S.seq[type]}호`, age: ageDays || 0, loc, voy: null, cargo: {}, cons: [], mode: 'idle', busy: 0, fuel: t.tank, earn: 0, spend: 0 };
+  const sh = { id: S.sid++, type, name: `${t.short} ${S.seq[type]}호`, age: ageDays || 0, loc, voy: null, cargo: {}, cons: [], mode: 'idle', busy: 0, fuel: t.tank, earn: 0, spend: 0,
+    cond: Math.max(55, 100 - Math.round((ageDays || 0) / 365 * 1.5)), capt: null, route: null, wait: 0 };
   S.ships.push(sh); return sh;
+}
+function refreshCaptains() {
+  S.capPool = [];
+  const kinds = Object.keys(CAPTAINS);
+  for (let i = 0; i < 3; i++) S.capPool.push({ id: 'k' + (S.kid++), name: pick(CAP_NAMES[0]) + pick(CAP_NAMES[1]), kind: kinds[i] });
 }
 function deliveryPort(t) { return t.river ? S.home : (S.home === 'mapo' ? 'incheon' : 'busan'); }
 function refreshUsed() {
@@ -333,10 +383,106 @@ function genContract(forceFrom, forceType) {
     const q = Math.max(3, Math.round(t.cap * rnd(0.35, 1)));
     const boom = S.events.some(e => e.port === from) ? 1.4 : 1;
     // big lots pay less per ton (economies of scale): 10t → ×1.0, 100t → ×0.89, 1,000t → ×0.79
-    const pay = Math.round(q * GOODS[g].rate * (14 + 0.06 * km) * Math.pow(q / 10, -0.05) * S.idx * boom * rnd(0.85, 1.2) / 5) * 5;
-    const due = Math.ceil(km / (t.speed * 0.75)) + (GOODS[g].fresh ? 1 : 4);
-    S.contracts.push({ id: S.cid++, from, to, good: g, q, km: Math.round(km), pay, due, offer: S.day + rint(5, 11), size: tk });
+    const base = q * GOODS[g].rate * (14 + 0.06 * km) * Math.pow(q / 10, -0.05) * rnd(0.85, 1.2) * trustMul();
+    let pay = Math.round(base * S.idx * boom / 5) * 5;
+    let due = Math.ceil(km / (t.speed * 0.75)) + (GOODS[g].fresh ? 1 : 4);
+    let kind = km <= 250 ? 'short' : 'long', offer = S.day + rint(5, 11), legs = 0;
+    const roll = rand();
+    // 긴급: 운임 1.6배, 기한이 빠듯하다. 정기: 시황과 무관한 고정 운임으로 같은 구간 4회
+    if (S.trust >= KINDS.urgent.trust && roll < 0.12) { kind = 'urgent'; pay = Math.round(pay * 1.35 / 5) * 5; due = Math.ceil(km / (t.speed * 0.95)) + 1; }
+    else if (S.trust >= KINDS.regular.trust && roll < 0.18 && !forceFrom) { kind = 'regular'; pay = Math.round(base * 1.05 / 5) * 5; legs = 4; offer = S.day + 20; }
+    S.contracts.push({ id: S.cid++, from, to, good: g, q, km: Math.round(km), pay, due, offer, size: tk, kind, legs });
     return;
+  }
+}
+
+const trustMul = () => 0.95 + S.trust / 1000; // trust 50 → ×1.0, 100 → ×1.05
+function addTrust(d, why) {
+  const before = S.trust;
+  // gains shrink as trust rises (at 50 half a point a job, at 75 a quarter, at 100 none); losses always count in full
+  S.trust = clamp(S.trust + (d > 0 ? d * (100 - S.trust) / 100 : d), 0, 100);
+  if (Math.floor(before / 5) !== Math.floor(S.trust / 5) && why) news(`화주 신뢰 ${Math.round(S.trust)} (${why})`);
+}
+function checkGrade() {
+  const n = GRADES[S.grade + 1];
+  if (n && S.stats.delivered >= n.need && S.trust >= n.trust) {
+    S.grade++; news(`회사 등급 상승: ${GRADES[S.grade].name} · 선대 한도 ${GRADES[S.grade].fleet}척`);
+    HOOK.toast(`회사 등급 상승! ${GRADES[S.grade].name} · 이제 배를 ${GRADES[S.grade].fleet}척까지 가질 수 있습니다`); HOOK.sound('fanfare');
+  }
+}
+
+/* ---- 28일 입찰: 대형 화주가 한 구간의 큰 물량을 맡길 회사를 고른다 ---- */
+// how much of the lot my fleet could move inside the window, with ships that can make the trip
+function tenderCapacity(T0) {
+  let cap = 0;
+  for (const sh of S.ships) {
+    const t = T(sh);
+    if (t.role !== 'cargo' || !typeCarries(t, T0.good) || sh.mode === 'layup') continue;
+    const R = routes(T0.from, t); if (R.dist[T0.to] === undefined) continue;
+    const leg = Math.ceil(R.dist[T0.to] / t.speed) + 1;
+    cap += t.cap * Math.max(1, Math.floor(TENDER_DAYS / (2 * leg)));
+  }
+  for (const o of S.orders) { const t = SHIPS[o.type]; if (o.ready <= T0.close + 7 && t.role === 'cargo' && typeCarries(t, T0.good) && routes(T0.from, t).dist[T0.to] !== undefined) cap += t.cap; }
+  return cap;
+}
+function tenderScore(T0, bid) { return (S.trust / 60) * Math.pow(clamp(tenderCapacity(T0) / T0.q, 0, 1.2), 1.5) * BID_SCORE[bid]; }
+// a rough read of the odds for the screen and the bots
+function tenderOdds(T0, bid) { const s = tenderScore(T0, bid); return s > 1.25 ? 'high' : s > 0.95 ? 'mid' : 'low'; }
+function newTender(r1, r2) {
+  const cargo = S.ships.filter(sh => T(sh).role === 'cargo');
+  if (!cargo.length) return null;
+  const t = T(cargo.reduce((a, b) => T(b).cap > T(a).cap ? b : a));
+  const froms = Object.keys(PORTS).filter(p => portOpen(p) && PORTS[p].size >= 2 && (ADJ[p] || []).some(e => okEdge(e.t, t)));
+  if (!froms.length) return null;
+  const from = froms[Math.floor(r1 * froms.length)], R = routes(from, t);
+  const tos = Object.keys(R.dist).filter(p => PORTS[p] && p !== from && R.dist[p] >= 60 && R.dist[p] <= 1200);
+  if (!tos.length) return null;
+  const to = tos[Math.floor(r2 * tos.length)], km = R.dist[to];
+  const gs = Object.keys(GOODS).filter(g => goodOpen(g) && typeCarries(t, g));
+  const good = gs.find(g => PORTS[from].prod.includes(g)) || gs[0];
+  const leg = Math.ceil(km / t.speed) + 1, trips = Math.max(1, Math.floor(TENDER_DAYS / (2 * leg)));
+  const q = Math.round(t.cap * trips * 1.4);
+  const rate = GOODS[good].rate * (14 + 0.06 * km) * Math.pow(Math.min(q, t.cap) / 10, -0.05) * 1.05;
+  const shipper = pick(['대한제분', '삼양염업', '동양시멘트', '한일목재', '남선물산', '경일수산']);
+  return { id: ++S.tenders, shipper, from, to, good, q, km: Math.round(km), rate, open: S.day, close: S.day + 5, bid: null, state: 'open', due: 0, delivered: 0 };
+}
+function tenderDaily(draws) {
+  const Tn = S.tender;
+  if (S.day > 0 && S.day % TENDER_EVERY === 0 && (!Tn || Tn.state === 'lost' || Tn.state === 'done' || Tn.state === 'failed' || Tn.state === 'skip')) {
+    const nt = newTender(draws[0], draws[1]);
+    if (nt) { nt.rival = 0.7 + draws[2] * 0.5; S.tender = nt; news(`입찰 공고: ${nt.shipper} ${GOODS[nt.good].name} ${nf(nt.q)}t ${PORTS[nt.from].name}→${PORTS[nt.to].name} · ${TENDER_DAYS}일 안에 · 마감 ${dateStr(nt.close)}`); HOOK.toast(`입찰 공고! ${nt.shipper} ${nf(nt.q)}t · 거래소에서 응찰하세요`); }
+    return;
+  }
+  if (!Tn) return;
+  if (Tn.state === 'open' && S.day >= Tn.close) {
+    if (!Tn.bid) { Tn.state = 'skip'; return; }
+    const mine = tenderScore(Tn, Tn.bid);
+    if (mine > Tn.rival) {
+      Tn.state = 'won'; Tn.due = S.day + TENDER_DAYS; Tn.rate *= BID_MUL[Tn.bid]; S.stats.tenderWon++;
+      S.contracts.push({ id: S.cid++, from: Tn.from, to: Tn.to, good: Tn.good, q: Tn.q, km: Tn.km, pay: Math.round(Tn.q * Tn.rate), rate: Tn.rate, due: TENDER_DAYS, deadline: Tn.due, offer: Tn.due, size: null, kind: 'tender', legs: 0, tid: Tn.id });
+      news(`입찰 낙찰! ${Tn.shipper} ${nf(Tn.q)}t를 ${dateStr(Tn.due)}까지 ${PORTS[Tn.to].name}로`); HOOK.toast(`입찰 낙찰! ${PORTS[Tn.from].name}에서 입찰 화물을 실어 나르세요`); HOOK.sound('fanfare');
+    } else {
+      Tn.state = 'lost'; S.stats.tenderLost++;
+      const r = S.rivals[Math.floor(draws[3] * S.rivals.length)];
+      news(`입찰 탈락: ${Tn.shipper} 물량은 ${r.name}이(가) 가져갔습니다`); HOOK.toast(`입찰 탈락 — ${r.name} 낙찰. 배를 늘리고 신뢰를 쌓으면 이길 수 있습니다`);
+    }
+    return;
+  }
+  if (Tn.state === 'won' && S.day > Tn.due) {
+    const left = Tn.q - Tn.delivered, pen = Math.round(left * Tn.rate * 0.15);
+    S.cash -= pen; S.stats.penalty += pen; S.stats.tenderFail++; Tn.state = 'failed';
+    S.contracts = S.contracts.filter(c => c.tid !== Tn.id);
+    addTrust(-15, '입찰 물량 미달');
+    news(`입찰 계약 미이행: ${nf(left)}t 못 나름 · 위약금 ${won(pen)}`); HOOK.toast(`입찰 계약 기한 초과 — 위약금 ${won(pen)}, 신뢰 하락`);
+  }
+}
+function tenderDelivered(c) {
+  const Tn = S.tender; if (!Tn || Tn.id !== c.tid || Tn.state !== 'won') return;
+  Tn.delivered += c.q;
+  if (Tn.delivered >= Tn.q - 1e-6) {
+    Tn.state = 'done'; S.stats.tenderDone++; addTrust(8, '입찰 계약 완수');
+    news(`입찰 계약 완수: ${Tn.shipper} ${nf(Tn.q)}t`);
+    if (!S.autoOK) { S.autoOK = true; news('자동 항로 해금 — 선대 관리에서 배마다 두 항구를 오가는 정기 항로를 맡길 수 있습니다'); HOOK.toast('입찰 완수! 자동 항로가 열렸습니다'); HOOK.sound('fanfare'); }
   }
 }
 
@@ -344,47 +490,55 @@ function genContract(forceFrom, forceType) {
    Every action checks its own rules (the screen only hides buttons) and returns true when it happened. */
 const docked = sh => !!sh && !!sh.loc && !sh.voy;
 const canOperate = sh => docked(sh) && (sh.mode === 'idle' || sh.mode === 'tour' || sh.mode === 'bunker');
+const say = (quiet, t) => { if (!quiet) HOOK.toast(t); };
 function isValidSave(o) { return !!o && o.v === SAVE_VERSION && typeof o.rs === 'number' && typeof o.ms === 'number' && Array.isArray(o.ships) && !!o.stats; }
-function doRefuel(sh, frac) {
+function doRefuel(sh, frac, quiet) {
   if (!docked(sh) || !T(sh).tank) return false;
   const t = T(sh), want = Math.max(0, t.tank * frac - sh.fuel), price = fuelPrice(sh.loc);
   if (want <= 0.001) return false;
   const q = Math.min(want, Math.max(0, S.cash + creditLine()) / price);
   if (q <= 0.001) { HOOK.toast('현금과 외상 한도가 모두 바닥났습니다. 배를 팔거나 계선하세요'); return false; }
   S.cash -= q * price; sh.fuel += q; sh.spend += q * price; S.stats.fuel += q * price;
-  HOOK.toast(`${sh.name} 연료 ${q.toFixed(2)}t 보충 ${won(q * price)}`); HOOK.sound('click');
+  if (!quiet) { HOOK.toast(`${sh.name} 연료 ${q.toFixed(2)}t 보충 ${won(q * price)}`); HOOK.sound('click'); }
   return true;
 }
-function doLoad(cid, sh) {
+function doLoad(cid, sh, quiet) {
   if (!canOperate(sh) || T(sh).role !== 'cargo') return false;
   const i = S.contracts.findIndex(c => c.id === cid); if (i < 0) return false;
   const c = S.contracts[i];
-  if (sh.loc !== c.from || freeCap(sh) < c.q || !canCarry(sh, c.good)) return false;
-  S.contracts.splice(i, 1);
-  sh.cons.push({ ...c, deadline: S.day + c.due });
-  HOOK.sound('click'); HOOK.toast(`${GOODS[c.good].name} ${c.q}t 선적 → ${PORTS[c.to].name} · 운임 ${won(c.pay)}`);
+  if (sh.loc !== c.from || !fits(sh, c) || !canCarry(sh, c.good)) return false;
+  let lot;
+  if (c.kind === 'tender') {
+    const q = lotQ(sh, c); lot = { ...c, id: S.cid++, q, pay: Math.round(q * c.rate), deadline: c.deadline };
+    c.q -= q; c.pay = Math.round(c.q * c.rate); if (c.q <= 0) S.contracts.splice(i, 1);
+  } else { S.contracts.splice(i, 1); lot = { ...c, deadline: S.day + c.due }; }
+  sh.cons.push(lot);
+  if (!quiet) { HOOK.sound('click'); HOOK.toast(`${GOODS[c.good].name} ${lot.q}t 선적 → ${PORTS[c.to].name} · 운임 ${won(lot.pay)}`); }
   return true;
 }
 function doUnload(cid, sh) {
   if (!docked(sh)) return false;
   const i = sh.cons.findIndex(c => c.id === cid); if (i < 0) return false;
   const [c] = sh.cons.splice(i, 1);
-  if (c.offer >= S.day) S.contracts.push(c);
+  if (c.kind === 'tender') { const pool = S.contracts.find(x => x.tid === c.tid); if (pool) { pool.q += c.q; pool.pay = Math.round(pool.q * pool.rate); } else if (S.tender && S.tender.id === c.tid && S.tender.state === 'won') S.contracts.push({ ...c, id: S.cid++ }); }
+  else if (c.offer >= S.day) S.contracts.push(c);
   HOOK.toast(`${GOODS[c.good].name} ${c.q}t 하역 (의뢰 반납)`);
   return true;
 }
-function doSail(sh, to) {
+function doSail(sh, to, quiet) {
   if (!canOperate(sh) || to === sh.loc || !PORTS[to]) return false;
+  // a worn-out hull may still limp to the nearest yard, never anywhere else
+  if (sh.cond < 20 && !yardAt(to)) { say(quiet, `${sh.name} 선체 상태 ${Math.round(sh.cond)} — 조선·정비소가 있는 항구로만 갈 수 있습니다`); return false; }
   const p = plan(sh, to); if (!p) return false;
-  if (T(sh).burn && sh.fuel + 1e-6 < p.fuel) { HOOK.toast(`연료가 모자랍니다. 예상 ${p.fuel.toFixed(2)}t 필요, 남은 연료 ${sh.fuel.toFixed(2)}t`); return false; }
+  if (T(sh).burn && sh.fuel + 1e-6 < p.fuel) { say(quiet, `연료가 모자랍니다. 예상 ${p.fuel.toFixed(2)}t 필요, 남은 연료 ${sh.fuel.toFixed(2)}t`); return false; }
   S.cash -= portFee(T(sh)); sh.spend += portFee(T(sh)); S.stats.fees += portFee(T(sh)); S.stats.voyages++; if (!load(sh)) S.stats.ballast++;
   sh.voy = { from: sh.loc, to, path: p.path, segs: p.segs, dist: p.dist, done: 0, dep: S.day, next: 0, eta: p.days,
     // per-voyage account for the settlement card
-    fee: portFee(T(sh)), fp: fuelPrice(sh.loc), fuelUsed: 0, emFuel: 0, wage: 0, extra: 0, laden: load(sh) > 0 };
-  sh.voy.next = dayStep(T(sh), areaAt(p.segs, 0), 0, load(sh) > 0).spd;
-  sh.loc = null; sh.mode = 'idle';
-  HOOK.toast(`${sh.name} 출항 → ${PORTS[to].name} (예상 ${p.days}일)`); HOOK.sound('horn');
-  HOOK.sailed(sh);
+    fee: portFee(T(sh)), fp: fuelPrice(sh.loc), fuelUsed: 0, emFuel: 0, wage: 0, extra: 0, laden: load(sh) > 0,
+    capSave: 0, capKm: 0, wear: 0, auto: !!quiet };
+  sh.voy.next = dayStep(T(sh), areaAt(p.segs, 0), 0, load(sh) > 0, sh).spd;
+  sh.loc = null; sh.mode = 'idle'; sh.wait = 0;
+  if (!quiet) { HOOK.toast(`${sh.name} 출항 → ${PORTS[to].name} (예상 ${p.days}일)`); HOOK.sound('horn'); HOOK.sailed(sh); }
   return true;
 }
 function doFish(sh) {
@@ -408,10 +562,16 @@ function doReactivate(sh) {
   HOOK.toast(`${sh.name} 재가동 시작 · ${won(fee)} · 2일 뒤 운항 가능`);
   return true;
 }
-function doOrder(type) {
+function fleetFull(quiet) {
+  if (fleetCount() < fleetLimit()) return false;
+  const n = GRADES[S.grade + 1];
+  say(quiet, `선대 한도 ${fleetLimit()}척이 찼습니다 (${GRADES[S.grade].name}).${n ? ` 배달 ${n.need}건·화주 신뢰 ${n.trust}이면 ${n.name}로 올라 ${n.fleet}척까지 늘릴 수 있습니다` : ''}`);
+  return true;
+}
+function doOrder(type, quiet) {
   const t = SHIPS[type]; if (!t || t.era > S.era) return false;
   const cost = newPrice(t);
-  if (S.cash < cost) return false;
+  if (S.cash < cost || fleetFull(quiet)) return false;
   S.cash -= cost; S.stats.shipBuy += cost;
   S.orders.push({ type, ready: S.day + t.build, port: deliveryPort(t), paid: cost });
   HOOK.toast(`${t.name} 발주 완료. ${t.build}일 뒤 ${PORTS[deliveryPort(t)].name}에서 인도`); HOOK.sound('click');
@@ -420,18 +580,79 @@ function doOrder(type) {
 function doBuyUsed(id) {
   const i = S.used.findIndex(u => u.id === id); if (i < 0) return false;
   const L = S.used[i], cost = usedPrice(L);
-  if (S.cash < cost) return false;
+  if (S.cash < cost || fleetFull()) return false;
   S.cash -= cost; S.stats.shipBuy += cost; S.used.splice(i, 1);
   const sh = addShip(L.type, L.loc, L.age * 365); sh.fuel = SHIPS[L.type].tank * 0.3;
   HOOK.toast(`${sh.name} 매입 (${L.age}년 된 중고선, ${PORTS[L.loc].name})`);
   return true;
 }
 function doSellShip(sh) {
-  if (!docked(sh) || sh.cons.length || sh.mode === 'fishing' || sh.mode === 'react') return false;
+  if (!docked(sh) || sh.cons.length || sh.mode === 'fishing' || sh.mode === 'react' || sh.mode === 'repair') return false;
   const v = shipValue(sh);
   S.cash += v; S.stats.shipSell += v; S.ships = S.ships.filter(x => x !== sh);
   HOOK.toast(`${sh.name} 매각 ${won(v)}`);
   return true;
+}
+
+// 조선·정비소: 선체를 100으로 되돌린다. 수리하는 동안은 출항할 수 없다
+function doRepair(sh, quiet) {
+  if (!docked(sh) || !(sh.mode === 'idle' || sh.mode === 'tour' || sh.mode === 'bunker' || sh.mode === 'layup') || sh.cond >= 99.5 || !yardAt(sh.loc)) return false;
+  const cost = repairCost(sh), days = repairDays(sh);
+  // like fuel, a repair can go on the company's credit line
+  if (S.cash + creditLine() < cost) { say(quiet, `수리비 ${won(cost)}가 현금과 외상 한도를 넘습니다`); return false; }
+  if (sh.cons.length) { say(quiet, '화물을 실은 채로는 수리할 수 없습니다. 먼저 배달하거나 내리세요'); return false; }
+  S.cash -= cost; sh.spend += cost; S.stats.repair += cost; sh.after = sh.mode === 'layup' ? 'layup' : 'idle'; sh.mode = 'repair'; sh.busy = S.day + days;
+  say(quiet, `${sh.name} 수리 시작 · ${won(cost)} · ${days}일 동안 출항 불가`);
+  return true;
+}
+// 닻 다방: 선장 고용. 한 배에 한 명, 바꾸면 이전 선장은 떠난다
+function doHire(kid, sh) {
+  const i = S.capPool.findIndex(k => k.id === kid);
+  if (i < 0 || !sh || T(sh).role !== 'cargo') return false;
+  const fee = capFee(sh);
+  if (S.cash < fee) { HOOK.toast(`고용비 ${won(fee)}가 모자랍니다`); return false; }
+  const [k] = S.capPool.splice(i, 1);
+  S.cash -= fee; sh.spend += fee; S.stats.hire += fee;
+  if (sh.capt) news(`${sh.capt.name} 선장이 ${sh.name}에서 내렸습니다`);
+  sh.capt = k; news(`${k.name} 선장(${CAPTAINS[k.kind].name}) ${sh.name}에 승선`);
+  HOOK.toast(`${k.name} 선장 고용 · ${CAPTAINS[k.kind].skill}: ${CAPTAINS[k.kind].desc}`); HOOK.sound('click');
+  return true;
+}
+function doFire(sh) { if (!sh || !sh.capt) return false; news(`${sh.capt.name} 선장 하선`); sh.capt = null; return true; }
+function doBid(level) {
+  const Tn = S.tender;
+  if (!Tn || Tn.state !== 'open' || !BID_MUL[level] || S.day >= Tn.close) return false;
+  Tn.bid = level; HOOK.toast(`응찰 완료 · 운임 ${{ low: '낮게', mid: '보통', high: '높게' }[level]} · 결과는 ${dateStr(Tn.close)}`);
+  return true;
+}
+// 자동 항로: 두 항구 사이를 오가며 그 구간 의뢰를 싣는다 (첫 입찰 완수로 해금)
+function doRoute(sh, a, b) {
+  if (!S.autoOK || !sh || T(sh).role !== 'cargo') return false;
+  if (!a) { sh.route = null; return true; }
+  const R = routes(a, T(sh));
+  if (a === b || !PORTS[a] || !PORTS[b] || R.dist[b] === undefined) return false;
+  sh.route = { a, b }; news(`${sh.name} 자동 항로 ${PORTS[a].name} ⇄ ${PORTS[b].name}`);
+  return true;
+}
+function nearestYard(sh) {
+  const R = routes(sh.loc, T(sh)); let best = null;
+  for (const p in R.dist) if (PORTS[p] && p !== sh.loc && yardAt(p) && (!best || R.dist[p] < R.dist[best])) best = p;
+  return best;
+}
+function autoTurn(sh) {
+  if (!sh.route || !canOperate(sh) || sh.mode !== 'idle') return;
+  const { a, b } = sh.route, at = sh.loc, home = at === a || at === b, dest = at === a ? b : a;
+  if (sh.cond < 45 && yardAt(at) && doRepair(sh, true)) return;
+  if (sh.cond < 20 && !yardAt(at)) { const y = nearestYard(sh); if (y) { doRefuel(sh, 1, true); doSail(sh, y, true); } return; }
+  if (home) {
+    const jobs = S.contracts.filter(c => c.from === at && c.to === dest && canCarry(sh, c.good)).sort((x, y) => (y.kind === 'tender') - (x.kind === 'tender') || y.pay - x.pay);
+    for (const c of jobs) if (fits(sh, c)) doLoad(c.id, sh, true);
+    sh.wait = (sh.wait || 0) + 1;
+    if (!sh.cons.length && sh.wait < 3) return;
+  }
+  const p = plan(sh, dest); if (!p) return;
+  if (T(sh).tank && sh.fuel < p.fuel * 1.2) doRefuel(sh, 1, true);
+  doSail(sh, dest, true);
 }
 
 /* ================= DAILY TICK ================= */
@@ -452,6 +673,7 @@ function tick() {
   // oil shocks come from outside, whatever era the company is in
   if (oilDraw < 0.0015) { S.oilShock += 0.8; news('중동 정세 불안 — 국제 유가 급등'); HOOK.toast('유가 급등! 기름값이 크게 올랐습니다'); }
   S.oil = clamp(S.oil + (1 - S.oil) * 0.02 + mgauss() * 0.018, 0.6, 1.6);
+  const tdraws = [mrand(), mrand(), mrand(), mrand()]; // drawn every day so the market never depends on the tender
   S.events = S.events.filter(e => e.until > S.day);
   const evDraw = mrand(), evPort = Object.keys(PORTS)[Math.floor(mrand() * Object.keys(PORTS).length)], evLen = 12 + Math.floor(mrand() * 14);
   if (evDraw < 0.02 && portOpen(evPort)) {
@@ -471,6 +693,7 @@ function tick() {
     if (sh.loc && sh.mode === 'tour') { const v = (PORTS[sh.loc].tour || 0) * 60 * (0.7 + 0.3 * S.idx) / tourCount[sh.loc]; S.cash += v; sh.earn += v; S.stats.other += v; }
     if (sh.loc && sh.mode === 'bunker') { const v = (PORTS[sh.loc].traffic || 0) * 260 * S.idx * oilLevel() / bunkCount[sh.loc]; S.cash += v; sh.earn += v; S.stats.other += v; }
     if (sh.mode === 'react' && S.day >= sh.busy) { sh.mode = 'idle'; news(`${sh.name} 재가동 완료`); }
+    if (sh.mode === 'repair' && S.day >= sh.busy) { sh.mode = sh.after || 'idle'; sh.cond = 100; news(`${sh.name} 수리 완료 · 선체 상태 100`); if (!sh.route) HOOK.toast(`${sh.name} 수리 완료`); }
     if (sh.mode === 'fishing') {
       sh.fuel = Math.max(0, sh.fuel - t.burn * WX_FUEL[wxNow(portArea(sh.loc))]);
       if (S.day >= sh.busy) {
@@ -481,8 +704,17 @@ function tick() {
       }
     }
     if (sh.voy) {
-      const v = sh.voy, st = dayStep(t, areaAt(v.segs, v.done), 0, load(sh) > 0);
+      const v = sh.voy, st = dayStep(t, areaAt(v.segs, v.done), 0, load(sh) > 0, sh);
       let spd = st.spd;
+      if (sh.capt) { v.capSave += Math.max(0, st.base.fuel - st.fuel) * v.fp; v.capKm += Math.max(0, st.spd - st.base.spd); }
+      // hull wear: more in bad weather; a storm captain halves it in wind and typhoons
+      const wear = [0.25, 0.3, 0.6, 1.5][st.w] * (sh.capt && sh.capt.kind === 'storm' && st.w >= 2 ? 0.5 : 1);
+      sh.cond = Math.max(0, sh.cond - wear); v.wear += wear;
+      if (sh.cond < 40 && rand() < (40 - sh.cond) / 400) {
+        const fix = Math.round(fullWage(sh) * 2 + t.price * 0.004);
+        S.cash -= fix; sh.spend += fix; S.stats.repair += fix; v.extra += fix; spd *= 0.3;
+        news(`${sh.name} 기관 고장 — 응급 수리 ${won(fix)} (선체 상태 ${Math.round(sh.cond)})`);
+      }
       if (t.burn) {
         if (sh.fuel < st.fuel) {
           const tow = st.fuel * fuelPrice(v.to) * 4 + fullWage(sh) * 3;
@@ -491,25 +723,36 @@ function tick() {
         }
         sh.fuel = Math.max(0, sh.fuel - st.fuel); v.fuelUsed += st.fuel;
       }
-      if (st.w === 3 && rand() < 0.06) { const dmg = t.price * 0.02; S.cash -= dmg; sh.spend += dmg; S.stats.repair += dmg; v.extra += dmg; news(`${sh.name} 태풍 피해 — 수리비 ${won(dmg)}`); }
+      if (st.w === 3 && rand() < (sh.capt && sh.capt.kind === 'storm' ? 0.03 : 0.06)) { sh.cond = Math.max(0, sh.cond - 12); v.wear += 12; news(`${sh.name} 태풍 피해 — 선체 상태 ${Math.round(sh.cond)}로 떨어짐. 조선·정비소에서 수리하세요`); }
       v.done += spd;
       if (v.done >= v.dist) {
         sh.loc = v.to; sh.voy = null;
         let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`, got = 0, lateN = 0, jobs = 0;
         const keep = [];
         for (const c of sh.cons) {
-          if (c.to === sh.loc) { const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay; S.cash += pay; sh.earn += pay; S.stats.freight += pay; S.stats.delivered++; if (late) { S.stats.late++; lateN++; } jobs++; got += pay; if (late) msg += ' · 기한 초과로 운임 절반'; }
-          else keep.push(c);
+          if (c.to === sh.loc) {
+            const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay; S.cash += pay; sh.earn += pay; S.stats.freight += pay; S.stats.delivered++; if (late) { S.stats.late++; lateN++; } jobs++; got += pay; if (late) msg += ' · 기한 초과로 운임 절반';
+            // shippers remember: on time builds trust, late costs it
+            if (c.kind === 'tender') tenderDelivered(c);
+            else if (late) addTrust(c.kind === 'urgent' ? -8 : -5, '납기 지연');
+            else addTrust(c.kind === 'urgent' ? 3 : c.kind === 'regular' ? 2 : 1, '납기 준수');
+            if (c.kind === 'regular' && c.legs > 1) {
+              S.contracts.push({ ...c, id: S.cid++, legs: c.legs - 1, offer: S.day + 25, deadline: undefined, mine: true });
+              msg += ` · 정기 운송 다음 회차 ${PORTS[c.from].name}에서 대기 (${c.legs - 1}회 남음)`;
+            }
+          } else keep.push(c);
         }
         sh.cons = keep;
         if (got) { msg += ` · 운임 ${won(got)}`; HOOK.sound('coin'); } else HOOK.sound('bell');
         const fuelCost = (v.fuelUsed - v.emFuel) * v.fp;
-        const trip = { ship: sh.id, from: v.from, to: v.to, days: S.day - v.dep, jobs, late: lateN, freight: got, fee: v.fee, fuelT: v.fuelUsed, fuelCost, wage: v.wage, extra: v.extra };
+        const trip = { ship: sh.id, from: v.from, to: v.to, days: S.day - v.dep, jobs, late: lateN, freight: got, fee: v.fee, fuelT: v.fuelUsed, fuelCost, wage: v.wage, extra: v.extra,
+          capt: sh.capt ? sh.capt.kind : null, capSave: v.capSave || 0, capDays: sh.capt ? (v.capKm || 0) / t.speed : 0, wear: v.wear || 0, cond: sh.cond, auto: !!v.auto };
         trip.net = trip.freight - trip.fee - trip.fuelCost - trip.wage - trip.extra;
+        S.stats.capSave += trip.capSave;
         sh.lastTrip = trip; S.stats.trips++;
-        news(msg); arrived = true;
+        news(msg); if (!v.auto) arrived = true;
         HOOK.trip(sh, trip, msg);
-      } else v.next = dayStep(t, areaAt(v.segs, v.done), 1, load(sh) > 0).spd;
+      } else v.next = dayStep(t, areaAt(v.segs, v.done), 1, load(sh) > 0, sh).spd;
     }
   }
   if (S.cash < 0) S.cash *= 1.001;
@@ -520,7 +763,9 @@ function tick() {
   S.orders = S.orders.filter(o => o.ready > S.day);
   // freight jobs: expire, rivals take some, new ones appear
   S.contracts = S.contracts.filter(c => {
-    if (c.offer < S.day) return false;
+    if (c.kind === 'tender') return true;
+    if (c.offer < S.day) { if (c.mine) { addTrust(-6, '정기 운송 회차 누락'); news(`정기 운송 ${PORTS[c.from].name}→${PORTS[c.to].name} 회차를 놓쳤습니다 — 신뢰 하락`); } return false; }
+    if (c.mine) return true;
     if (rand() < 0.03) { const r = pick(S.rivals); if (rand() < 0.3) news(`${r.name}이(가) ${PORTS[c.from].name}→${PORTS[c.to].name} ${GOODS[c.good].name} 화물을 가져갔습니다`); return false; }
     return true;
   });
@@ -530,7 +775,10 @@ function tick() {
   for (let k = 0; k < [0, 7, 11, 15][S.era] * growth * volume; k++) if (S.contracts.length < want && rand() < 0.8) genContract();
   // keep a little work around wherever my ships wait
   for (const sh of S.ships) if (sh.loc && !sh.voy && T(sh).role === 'cargo' && rand() < 0.15 && !S.contracts.some(c => c.from === sh.loc && c.q <= T(sh).cap && canCarry(sh, c.good))) genContract(sh.loc, sh.type);
-  if (S.day % 30 === 0) refreshUsed();
+  if (S.day % 30 === 0) { refreshUsed(); refreshCaptains(); }
+  tenderDaily(tdraws);
+  checkGrade();
+  if (S.autoOK) for (const sh of S.ships) if (sh.route) autoTurn(sh);
   for (const r of S.rivals) {
     const g = 0.016 * Math.pow(5000 / r.w, 0.3) * r.k * (1 + r.sens * (S.idx - 1)) - 0.004 * (oilLevel() - 1) + mgauss() * r.noise;
     r.w = Math.max(500, r.w * (1 + g));

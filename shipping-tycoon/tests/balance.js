@@ -15,8 +15,8 @@ const pct = (a, p) => { const b = a.filter(x => x !== null).sort((x, y) => x - y
 function runOne(style, seed) {
   const home = seed % 2 ? 'mapo' : 'gupo';
   E.newGame('bot', home, seed);
-  const bot = makeBot(E, style.replace('-nolayup', ''), { layup: !style.endsWith('-nolayup') });
-  const m = { curve: {}, rivalCurve: {}, style, seed, second: null, era2: null, era3: null, goal: null, bankrupt: false, idleShipDays: 0, noJobDays: 0 };
+  const bot = makeBot(E, style.replace(/-.*/, ''), { layup: !style.endsWith('-nolayup'), captain: !style.endsWith('-nocapt') });
+  const m = { curve: {}, rivalCurve: {}, style, seed, second: null, era2: null, era3: null, goal: null, bankrupt: false, idleShipDays: 0, noJobDays: 0, firstTender: null, trust500: null, grade500: null, capt: [] };
   const wasAtSea = new Set();
   for (let d = 0; d < DAYS; d++) {
     const S = E.S;
@@ -34,6 +34,9 @@ function runOne(style, seed) {
     if (m.era2 === null && E.S.era >= 2) m.era2 = E.S.day;
     if (m.era3 === null && E.S.era >= 3) m.era3 = E.S.day;
     if (m.goal === null && E.S.won) m.goal = E.S.day;
+    if (m.firstTender === null && E.S.stats.tenderDone > 0) m.firstTender = E.S.day;
+    if (E.S.day === 500) { m.trust500 = E.S.trust; m.grade500 = E.S.grade; }
+    if (E.S.day % 50 === 0 && style === 'safe') m.capt.push(...captainProbe());
     if (E.S.day % 100 === 0) { m.curve[E.S.day] = E.netWorth(); m.rivalCurve[E.S.day] = Math.max(...E.S.rivals.map(r => r.w)); }
     if (E.S.over) { m.bankrupt = true; break; }
   }
@@ -54,8 +57,26 @@ function runOne(style, seed) {
   return m;
 }
 
+// controlled captain test: the same job for the same ship, priced on the same forecast, with and without each captain
+function captainProbe() {
+  const out = [], S = E.S;
+  for (const sh of S.ships) {
+    if (!sh.loc || sh.voy || E.T(sh).role !== 'cargo' || E.T(sh).sail) continue;
+    const keep = sh.capt;
+    const jobs = S.contracts.filter(c => c.from === sh.loc && E.canCarry(sh, c.good) && E.fits(sh, c)).slice(0, 4);
+    for (const c of jobs) {
+      sh.capt = null; const b = E.jobNet(sh, c); if (!b || b.net <= 0) continue;
+      const r = { base: b.perDay, days: b.days };
+      for (const k of ['eco', 'storm', 'swift']) { sh.capt = { kind: k }; r[k] = E.jobNet(sh, c).perDay; }
+      out.push(r);
+    }
+    sh.capt = keep;
+  }
+  return out;
+}
+
 const t0 = Date.now();
-const styles = [...STYLES, 'safe-nolayup'];
+const styles = [...STYLES, 'safe-nolayup', 'safe-nocapt'];
 const runs = {};
 for (const st of styles) { runs[st] = []; for (let s = 1; s <= SEEDS; s++) runs[st].push(runOne(st, s)); }
 const ms = Date.now() - t0;
@@ -89,7 +110,20 @@ for (const st of ['safe', 'expansion']) { const v = median(col(st, 'fuelShare'))
   const diff = runs.safe.map((r, i) => r.netWorth - runs['safe-nolayup'][i].netWorth);
   const wins = diff.filter(d => d > 0).length / diff.length, md = median(diff);
   check('계선이 이득 (같은 시드 짝 비교, 중앙 차이 > 0)', md > 0, `중앙 차이 ₩${Math.round(md).toLocaleString()} · 계선 쪽 우세 ${fmtP(wins)}`); }
-checks.push({ name: '선장 효과 +10~20%', ok: null, detail: '선장 미구현 (B 단계)' });
+{ // the design doc's target: the captain changes a voyage's result by 10~20%. Same job, same forecast, with and without;
+  // judged on the summed day profit of all probed jobs (a ratio per job explodes when a job barely pays)
+  const probes = runs.safe.flatMap(r => r.capt);
+  const up = (k, ps = probes) => ps.reduce((a, p) => a + p[k], 0) / ps.reduce((a, p) => a + p.base, 0) - 1;
+  { const v = up('eco'); check('선장 효과 +10~20% (연비형, 같은 의뢰 하루 순이익 합계)', v >= 0.1 && v <= 0.2, `${fmtP(v)} · ${probes.length}건`); }
+  { const long = probes.filter(p => p.days >= 3), v = up('swift', long); // the swift captain is meant for longer runs
+    check('선장 효과 +10~20% (납기형, 3일 넘는 의뢰)', v >= 0.1 && v <= 0.2, `${fmtP(v)} · ${long.length}건 (전체 ${fmtP(up('swift'))})`); }
+  checks.push({ name: '악천후형 효과 (날씨에 따라, 참고)', ok: null, detail: `전체 ${fmtP(up('storm'))}` });
+  const diff = runs.safe.map((r, i) => r.netWorth - runs['safe-nocapt'][i].netWorth);
+  checks.push({ name: '선장 고용 전체 효과 (참고, 같은 시드 짝)', ok: null, detail: `중앙 차이 ₩${Math.round(median(diff)).toLocaleString()} · 고용 쪽 우세 ${fmtP(diff.filter(d => d > 0).length / diff.length)}` });
+}
+{ const v = median(core.flatMap(st => col(st, 'firstTender')).map(x => x ?? 99999));
+  checks.push({ name: '첫 입찰 완수 (핵심 3성향 중앙값, 참고)', ok: null, detail: v >= 99999 ? '기간 안 없음' : fmtD(v) });
+  checks.push({ name: '500일 신뢰·회사 등급 (안전형 중앙, 참고)', ok: null, detail: `신뢰 ${Math.round(median(col('safe', 'trust500')))} · ${median(col('safe', 'grade500'))}등급 / 초보형 신뢰 ${Math.round(median(col('novice', 'trust500')))}` }); }
 
 console.log(`\n선박왕 밸런스 백테스트 · 시드 ${SEEDS}개 × 봇 ${styles.length}종 × ${DAYS}일 · ${(ms / 1000).toFixed(1)}초\n`);
 console.log('성향          두번째배  연안시대  근해시대  목표달성(중앙/달성률)  파산   최종 순자산(중앙)   선박수');

@@ -211,5 +211,132 @@ test('어느 시드로 시작해도 모항에 첫 항차로 남는 의뢰가 있
   }
 });
 
+/* ---- B2: hull, yard, captains, jobs, trust, grade, tender, auto route ---- */
+const sailTo = (E, sh, to) => { E.doRefuel(sh, 1); ok(E.doSail(sh, to), '출항 실패'); for (let i = 0; i < 90 && sh.voy; i++) E.tick(); ok(!sh.voy, '도착 못 함'); };
+
+test('항해하면 선체 상태가 떨어지고, 상태가 나쁘면 연료를 더 쓰고, 20 아래면 정비소 있는 항구로만 갈 수 있다', () => {
+  const E = fresh(40); const { sh, c } = loadedShip(E); E.doLoad(c.id, sh);
+  const p100 = E.plan(sh, c.to); sh.cond = 60; const p60 = E.plan(sh, c.to);
+  ok(p60.fuel > p100.fuel * 1.15 && p60.fuel < p100.fuel * 1.17, `연료 ${p100.fuel} → ${p60.fuel}`);
+  sh.cond = 100; sailTo(E, sh, c.to);
+  ok(sh.cond < 100, '선체 상태가 그대로');
+  sh.loc = 'chungju'; sh.cond = 15; eq(E.doSail(sh, 'yeoju'), false, '낡은 배가 정비소 없는 곳으로 출항');
+  E.doRefuel(sh, 1); ok(E.doSail(sh, 'mapo'), '낡은 배도 정비소 있는 항구로는 갈 수 있어야 함');
+});
+
+test('수리 중에는 출항할 수 없고, 끝나면 선체 100 · 계선 중 수리는 계선 상태로 돌아간다', () => {
+  const E = fresh(41); const sh = E.S.ships[0]; sh.cond = 55; E.S.cash = 5000;
+  const cost = E.repairCost(sh), days = E.repairDays(sh), cash0 = E.S.cash;
+  ok(E.doRepair(sh), '수리 시작 실패'); eq(Math.round(cash0 - E.S.cash), cost, '수리비');
+  eq(E.doSail(sh, 'incheon'), false, '수리 중 출항');
+  for (let i = 0; i < days; i++) E.tick();
+  eq(sh.mode, 'idle', '수리 뒤 상태'); eq(sh.cond, 100, '수리 뒤 선체');
+  sh.cond = 70; E.doLayup(sh); ok(E.doRepair(sh), '계선 중 수리'); for (let i = 0; i < 9; i++) E.tick();
+  eq(sh.mode, 'layup', '계선 중 수리 뒤 상태');
+});
+
+test('수리는 규모 2 이상 항구나 모항에서만 된다', () => {
+  const E = fresh(42); const sh = E.S.ships[0]; sh.cond = 50; sh.loc = 'chungju';
+  eq(E.doRepair(sh), false, '충주(작은 나루) 수리');
+});
+
+test('선장: 연비형은 연료 40% 절약, 급여는 고정비의 3%, 정산표에 절약액이 나온다', () => {
+  const E = fresh(43); const { sh, c } = loadedShip(E); E.doLoad(c.id, sh); E.S.cash = 5000;
+  const w0 = E.wage(sh), f0 = E.plan(sh, c.to).fuel;
+  const k = E.S.capPool.find(k => k.kind === 'eco'); ok(E.doHire(k.id, sh), '고용 실패');
+  ok(Math.abs(E.wage(sh) - w0 * 1.03) < 1e-9, '선장 급여');
+  ok(Math.abs(E.plan(sh, c.to).fuel - f0 * 0.6) < 1e-9, '연비형 연료');
+  let trip = null; E.HOOK.trip = (s, t) => { trip = t; };
+  sailTo(E, sh, c.to);
+  ok(trip.capt === 'eco' && trip.capSave > 0, `절약액 ${trip.capSave}`);
+});
+
+test('선장: 납기형은 빨리 가고, 악천후형은 태풍 손실이 절반이다', () => {
+  const E = fresh(44); const sh = E.S.ships[0]; const t = E.T(sh);
+  E.S.wx.river = [3, 3, 3];
+  const base = E.dayStep(t, 'river', 0, true, sh);
+  sh.capt = { kind: 'swift' }; ok(E.dayStep(t, 'river', 0, true, sh).spd > base.spd * 1.11, '납기형 속도');
+  sh.capt = { kind: 'storm' }; const st = E.dayStep(t, 'river', 0, true, sh);
+  ok(st.spd > base.spd && st.fuel < base.fuel, '악천후형 태풍');
+});
+
+test('화주 신뢰: 납기를 지키면 오르고, 늦으면 떨어진다', () => {
+  const E = fresh(45); const { sh, c } = loadedShip(E); E.doLoad(c.id, sh);
+  const t0 = E.S.trust; sailTo(E, sh, c.to); ok(E.S.trust > t0, '정시 배달 뒤 신뢰');
+  const E2 = fresh(45); const r = loadedShip(E2); E2.doLoad(r.c.id, r.sh); r.sh.cons[0].deadline = -1;
+  const t1 = E2.S.trust; sailTo(E2, r.sh, r.c.to); ok(E2.S.trust < t1, '지연 뒤 신뢰');
+});
+
+test('긴급·정기 의뢰는 신뢰가 쌓여야 나온다', () => {
+  const gen = trust => { const E = fresh(46); E.S.trust = trust; E.S.contracts = []; for (let i = 0; i < 300; i++) E.genContract(); return E.S.contracts; };
+  const low = gen(40), high = gen(80);
+  ok(!low.some(c => c.kind === 'urgent' || c.kind === 'regular'), '신뢰 40에서 긴급·정기');
+  ok(high.some(c => c.kind === 'urgent') && high.some(c => c.kind === 'regular'), '신뢰 80에서 긴급·정기 없음');
+  ok(low.every(c => c.kind === (c.km <= 250 ? 'short' : 'long')), '거리별 종류');
+});
+
+test('정기 운송: 배달하면 같은 구간 다음 회차가 내 몫으로 남고, 놓치면 신뢰가 떨어진다', () => {
+  const E = fresh(47); const { sh, c } = loadedShip(E);
+  Object.assign(c, { kind: 'regular', legs: 4 }); E.doLoad(c.id, sh); sailTo(E, sh, c.to);
+  const next = E.S.contracts.find(x => x.kind === 'regular' && x.from === c.from && x.to === c.to);
+  ok(next && next.legs === 3 && next.mine, '다음 회차');
+  const t0 = E.S.trust; for (let i = 0; i < 30; i++) E.tick();
+  ok(!E.S.contracts.includes(next) && E.S.trust < t0, '놓친 회차');
+});
+
+test('회사 등급이 선대 한도를 정하고, 배달 실적과 신뢰로 오른다', () => {
+  const E = fresh(48); E.S.cash = 1e6;
+  ok(E.doOrder('ttak'), '두 번째 배'); eq(E.doOrder('ttak'), false, '나루 상회 3번째 배');
+  E.S.stats.delivered = 8; E.S.trust = 53; E.tick();
+  eq(E.S.grade, 2, '등급'); ok(E.doOrder('ttak'), '등급 오른 뒤 발주');
+});
+
+test('입찰: 한 척으로는 지고 두 척이면 이긴다 · 낙찰 물량을 나눠 실어 다 나르면 자동 항로가 열린다', () => {
+  const E = fresh(49); E.S.cash = 1e6; E.S.era = 2;
+  const one = E.newTender(0.1, 0.5); ok(one, '입찰 생성'); one.close = E.S.day + 5;
+  ok(E.tenderScore(one, 'mid') < 0.7, `한 척 점수 ${E.tenderScore(one, 'mid')}`);
+  E.addShip(E.S.ships[0].type, E.S.home, 0);
+  ok(E.tenderScore(one, 'mid') > 1.0, `두 척 점수 ${E.tenderScore(one, 'mid')}`);
+  Object.assign(one, { rival: 1.0, from: E.S.home }); E.S.tender = one; E.doBid('mid');
+  for (let i = 0; i < 5; i++) E.tick();
+  eq(one.state, 'won', '낙찰');
+  const lot = E.S.contracts.find(c => c.kind === 'tender'); ok(lot && lot.q === one.q, '입찰 화물');
+  // carry it all with whatever ships are at the loading port
+  for (let round = 0; round < 12 && one.state === 'won'; round++) {
+    for (const sh of E.S.ships) {
+      if (sh.voy || sh.mode !== 'idle') continue;
+      if (sh.loc !== one.from) { E.doRefuel(sh, 1); E.doSail(sh, one.from); continue; }
+      const l = E.S.contracts.find(c => c.kind === 'tender'); if (!l) break;
+      E.doLoad(l.id, sh); E.doRefuel(sh, 1); E.doSail(sh, one.to);
+    }
+    for (let i = 0; i < 6; i++) E.tick();
+  }
+  eq(one.state, 'done', '입찰 완수'); ok(E.S.autoOK, '자동 항로 해금');
+});
+
+test('입찰 물량을 기한까지 못 채우면 위약금과 신뢰 하락', () => {
+  const E = fresh(50); E.S.cash = 1e6; E.addShip('ttak', E.S.home, 0);
+  const tn = E.newTender(0.1, 0.5); Object.assign(tn, { rival: 0.1, close: E.S.day + 1 }); E.S.tender = tn; E.doBid('mid');
+  E.tick(); eq(tn.state, 'won', '낙찰');
+  const cash0 = E.S.cash, t0 = E.S.trust;
+  for (let i = 0; i < 30; i++) E.tick();
+  eq(tn.state, 'failed', '미이행'); ok(E.S.stats.penalty > 0 && E.S.trust <= t0 - 15 + 1e-9, '위약금·신뢰');
+  ok(!E.S.contracts.some(c => c.kind === 'tender'), '남은 입찰 화물 정리');
+});
+
+test('자동 항로: 맡겨 두면 두 항구를 오가며 그 구간 화물을 나른다', () => {
+  const E = fresh(51); E.S.autoOK = true; const sh = E.S.ships[0];
+  ok(E.doRoute(sh, 'mapo', 'incheon'), '항로 등록');
+  const d0 = E.S.stats.delivered, v0 = E.S.stats.voyages;
+  for (let i = 0; i < 120; i++) { E.tick(); if (sh.loc && !sh.voy && sh.mode === 'idle' && !E.S.contracts.some(c => c.from === sh.loc)) E.genContract(sh.loc, sh.type); }
+  ok(E.S.stats.voyages - v0 >= 6, `항해 ${E.S.stats.voyages - v0}회`);
+  ok(E.S.stats.delivered > d0, '배달 없음');
+});
+
+test('예전 버전(v4) 세이브는 받지 않는다', () => {
+  const E = fresh(52); const old = JSON.parse(JSON.stringify(E.S)); old.v = 4;
+  eq(E.isValidSave(old), false, 'v4'); eq(E.isValidSave(E.S), true, 'v5');
+});
+
 console.log(`\n${pass}개 통과 · ${fail}개 실패`);
 if (fail) process.exitCode = 1;

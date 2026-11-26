@@ -115,6 +115,16 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .trip td.r { text-align: right; font-family: var(--f-num); }
 .trip tr.sum td { border-bottom: 0; font-weight: 700; font-size: 15px; padding-top: 8px; }
 .nexts { display: grid; gap: 6px; }
+.kind { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 5px; background: var(--chip); color: var(--muted); margin-right: 4px; vertical-align: 1px; }
+.kind.urgent { background: #fbe3df; color: #a1261c; } .kind.regular { background: #e2efe0; color: #24622f; } .kind.tender { background: #f6e7bf; color: #7a5300; }
+.con.tender { border-color: #d8b25a; }
+.tag.cap { background: #e9e4f7; color: #4b3a8a; margin-left: 6px; }
+.bar.hull i { background: #6f8f6a; } .bar.hull.bad i { background: var(--neg); }
+.intro { border-left: 4px solid var(--gold, #d8a531); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kind.urgent { background: #4a2420; color: #ffb4a8; } :root:not([data-theme="light"]) .kind.regular { background: #1f3a25; color: #a8e0b2; } :root:not([data-theme="light"]) .kind.tender { background: #43361a; color: #f1d08a; } :root:not([data-theme="light"]) .tag.cap { background: #2e2850; color: #cfc4ff; } }
+:root[data-theme="dark"] .kind.urgent { background: #4a2420; color: #ffb4a8; } :root[data-theme="dark"] .kind.regular { background: #1f3a25; color: #a8e0b2; } :root[data-theme="dark"] .kind.tender { background: #43361a; color: #f1d08a; } :root[data-theme="dark"] .tag.cap { background: #2e2850; color: #cfc4ff; }
+.p3.night { background: linear-gradient(180deg, #0b1626, #1d2a3d); }
+.p3.night .p3chip { color: #b8c4d6; text-shadow: none; } .p3.night .p3chip b { color: #eef3fa; }
 
 h2 { font-size: 18px; margin: 0; text-wrap: balance; }
 h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); letter-spacing: 0.05em; font-weight: 600; }
@@ -283,7 +293,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 /* rules, data and simulation live in engine.js (shared with the test bots) */
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const UI = { tab: 'home', bld: null, exTab: 'cargo', exShip: null, fsub: 'ships', mapView: 'kr', ship: null, port: null, view: 'port3d', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo', metrics: null };
+const UI = { tab: 'home', bld: null, exTab: 'cargo', exShip: null, fsub: 'ships', mapView: 'kr', ship: null, port: null, view: 'port3d', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo', metrics: null, capShip: null, dayMode: 'auto' };
 const SPEEDS = [0.5, 1, 2, 4];
 function toast(t) {
   const box = $('#toast'), el = document.createElement('div');
@@ -609,12 +619,14 @@ const P3 = (() => {
   /* ---------- scene ---------- */
   let renderer, scene, camera, hemi, sun, box, canvas, overlay, chip, more;
   let world = null, shipLayer = null, sig = '', shipSig = '', visible = false, yaw = Math.PI / 4, zoom = 1, clock = 0;
-  let picks = [], npcs = [], boats = [], clouds = [], moving = [], slots = [], labels = [], bubbles = [], marker = null, hover = null, layout = null;
+  let night = false, picks = [], npcs = [], boats = [], clouds = [], moving = [], slots = [], labels = [], bubbles = [], marker = null, hover = null, layout = null;
   let onPick = () => {};
 
   function isDark() { const a = document.documentElement.getAttribute('data-theme'); if (a) return a === 'dark'; return matchMedia('(prefers-color-scheme: dark)').matches; }
   function setLights() {
     const d = isDark();
+    if (night) { hemi.color.set(0x4d6290); hemi.groundColor.set(0x1c2330); hemi.intensity = 0.42; sun.color.set(0x9fb4e8); sun.intensity = 0.22; box && box.classList.add('night'); return; }
+    box && box.classList.remove('night');
     hemi.color.set(d ? 0x6b7fa8 : 0xeaf6ff); hemi.groundColor.set(d ? 0x2a3340 : 0xa8bd8f); hemi.intensity = d ? 0.55 : 0.78;
     sun.color.set(d ? 0xa9bce6 : 0xfff3dc); sun.intensity = d ? 0.32 : 0.6;
   }
@@ -863,16 +875,20 @@ const P3 = (() => {
   }
   function show() { visible = true; box.hidden = false; resize(); sync(); }
   function hide() { visible = false; box.hidden = true; }
-  return { ok: true, init, show, hide, sync, frame };
+  // 낮밤: a moonlit port; lamps and windows (glow material) stay lit
+  function setNight(v) { if (v === night || !renderer) return; night = v; setLights(); }
+  return { ok: true, init, show, hide, sync, frame, night: setNight };
 })();
 
 /* ================= PANELS ================= */
+// small amounts (a river boat's captain earns under ₩1 a day) keep one decimal
+const wonS = n => Math.abs(n) < 10 ? '₩' + n.toFixed(1) : won(n);
 const chip = (label, val, cls = '') => `<div class="chip"><small>${label}</small><b class="${cls}">${val}</b></div>`;
 function renderTop() {
-  $('#coName').textContent = `${S.name} · ${ERA[S.era].name}`;
+  $('#coName').textContent = `${S.name} · ${GRADES[S.grade].name}`;
   $('#date').textContent = dateStr(S.day);
   const o = oilLevel();
-  $('#chips').innerHTML = chip('자금', wonK(S.cash), S.cash < 0 ? 'neg' : '') + chip('선대', `${S.ships.length}척`) + chip('순자산', wonK(netWorth()))
+  $('#chips').innerHTML = chip('자금', wonK(S.cash), S.cash < 0 ? 'neg' : '') + chip('선대', `${fleetCount()}/${fleetLimit()}`) + chip('신뢰', Math.round(S.trust)) + chip('순자산', wonK(netWorth()))
     + `<span class="wide-only">${chip('운임지수', `${S.idx.toFixed(2)} ${S.idx >= 1.15 ? '호황' : S.idx <= 0.85 ? '불황' : ''}`)}${chip('기름값', won(BASE_FUEL * o) + '/t')}</span>`;
   $('#bPlay').textContent = UI.playing ? '❚❚' : '▶';
   $('#bPlay').classList.toggle('on', UI.playing);
@@ -882,16 +898,20 @@ function renderTop() {
   $('#mapctl').hidden = !inMap;
   $('#vKr').classList.toggle('on', UI.mapView === 'kr');
   $('#vNea').classList.toggle('on', UI.mapView === 'nea');
+  const tn = S.tender, bidDue = tn && tn.state === 'open' && !tn.bid;
   for (const b of document.querySelectorAll('#tabs button')) {
     b.classList.toggle('on', b.dataset.t === UI.tab);
     const dot = b.querySelector('.dot');
-    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role === 'cargo' && !s.cons.length);
-    if (idle && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
-    if (!idle && dot) dot.remove();
+    const want = b.dataset.t === 'fleet' ? S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role === 'cargo' && !s.cons.length && !s.route) : b.dataset.t === 'home' ? bidDue : false;
+    if (want && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
+    if (!want && dot) dot.remove();
   }
   renderGoal();
+  P3.night?.(isNight());
 }
-
+// 낮밤: the player's own clock (19시~6시 밤) unless fixed in the settings. A game day lasts about a second,
+// so following the game clock would flicker
+function isNight() { const m = UI.dayMode || 'auto'; if (m !== 'auto') return m === 'night'; const h = new Date().getHours(); return h >= 19 || h < 6; }
 /* ---- today's goal: the first voyage, then the next growth step ---- */
 function goalInfo() {
   const st = S.stats, loaded = S.ships.some(s => s.cons.length);
@@ -904,9 +924,18 @@ function goalInfo() {
     return { steps, text: sh ? `${esc(sh.name)}이(가) ${PORTS[sh.voy.to].name}(으)로 가는 중. 도착하면 정산합니다` : '도착해서 운임 받기', btn: UI.playing ? null : ['▶ 시간 흐르게', 'play'] };
   }
   if (i === 3) return { steps, text: '다음 선택: 도착한 항구에서 다음 의뢰를 싣거나, 돈을 모아 두 번째 배를 마련하기', btn: ['거래소 열기', 'goal-ex'] };
+  // the first 30 minutes: second ship → captain → first tender, then the long goals
+  const tn = S.tender;
+  if (tn && tn.state === 'open' && !tn.bid) return { text: `입찰 공고: ${tn.shipper} ${GOODS[tn.good].name} ${nf(tn.q)}t · 응찰 마감 ${tn.close - S.day}일 뒤`, btn: ['입찰 보기', 'goal-tender'] };
+  if (tn && tn.state === 'won') return { text: `입찰 화물 ${nf(tn.delivered)} / ${nf(tn.q)}t · ${PORTS[tn.from].name}→${PORTS[tn.to].name} · 기한 ${tn.due - S.day}일`, prog: tn.delivered / tn.q, btn: ['입찰 화물 싣기', 'goal-tender'] };
   if (S.ships.length < 2) {
     const price = Math.min(...Object.values(SHIPS).filter(t => t.role === 'cargo' && t.era <= S.era).map(newPrice));
     return { text: `두 번째 배 마련하기 · ${won(S.cash)} / ${won(price)}`, prog: S.cash / price, btn: ['조선·정비소', 'goal-yard'] };
+  }
+  if (!S.ships.some(s => s.capt)) return { text: '닻 다방에서 선장을 고용해 배 한 척의 항차 결과 바꿔 보기', btn: ['닻 다방', 'goal-tea'] };
+  if (!st.tenderDone) {
+    const next = tn && (tn.state === 'open') ? 0 : TENDER_EVERY - (S.day % TENDER_EVERY);
+    return { text: `28일마다 열리는 대형 화주 입찰에서 낙찰받아 완수하기 · 완수하면 자동 항로가 열립니다${next ? ` · 다음 공고 ${next}일 뒤` : ''}`, btn: ['입찰 보기', 'goal-tender'] };
   }
   if (S.era < 3) { const need = ERA[S.era + 1].need; return { text: `${ERA[S.era + 1].name} 열기 · 순자산 ${wonK(netWorth())} / ${wonK(need)}`, prog: netWorth() / need }; }
   return { text: `선박왕 되기 · 순자산 ${wonK(netWorth())} / ${wonK(GOAL)} · 지금 ${myRank()}위`, prog: netWorth() / GOAL };
@@ -929,6 +958,8 @@ function statusText(sh) {
   if (sh.mode === 'bunker') return `급유 영업 · ${PORTS[sh.loc].name}`;
   if (sh.mode === 'layup') return `계선(휴업) · ${PORTS[sh.loc].name}`;
   if (sh.mode === 'react') return `재가동 중 · ${PORTS[sh.loc].name} · ${Math.max(0, sh.busy - S.day)}일`;
+  if (sh.mode === 'repair') return `수리 중 · ${PORTS[sh.loc].name} 조선·정비소 · ${Math.max(0, sh.busy - S.day)}일`;
+  if (sh.route) return `자동 항로 대기 · ${PORTS[sh.loc].name} (${PORTS[sh.route.a].name} ⇄ ${PORTS[sh.route.b].name})`;
   return `정박 · ${PORTS[sh.loc].name}`;
 }
 function forecastCard() {
@@ -939,18 +970,21 @@ function bars(sh) {
   const t = T(sh); let h = '';
   if (t.cap) h += `<div class="bar" title="적재"><i style="width:${Math.round(load(sh) / t.cap * 100)}%"></i></div>`;
   if (t.tank) h += `<div class="bar fuel" title="연료"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div>`;
+  h += `<div class="bar hull${sh.cond < 40 ? ' bad' : ''}" title="선체 상태 ${Math.round(sh.cond)}"><i style="width:${Math.round(sh.cond)}%"></i></div>`;
   return h;
 }
-const shipCard = sh => { const t = T(sh); return `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년 · 손익 <span class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</span></small></div><div class="st">${statusText(sh)}</div><div class="bars">${bars(sh)}</div></button>`; };
+const shipCard = sh => { const t = T(sh); return `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span>${sh.capt ? `<span class="tag cap">${CAPTAINS[sh.capt.kind].name} 선장</span>` : ''}${sh.route ? '<span class="tag">자동</span>' : ''}<small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년 · 선체 <span class="${sh.cond < 40 ? 'neg' : ''}">${Math.round(sh.cond)}</span> · 손익 <span class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</span></small></div><div class="st">${statusText(sh)}</div><div class="bars">${bars(sh)}</div></button>`; };
 const backBar = (title, to = 'home') => `<div class="dhead"><button class="back" data-act="bld" data-b="">← ${to === 'home' ? '모항' : to}</button><h2>${title}</h2></div>`;
 const canWork = sh => !!sh.loc && !sh.voy && (sh.mode === 'idle' || sh.mode === 'tour' || sh.mode === 'bunker');
+const kindTag = c => c.kind === 'urgent' ? '<span class="kind urgent">긴급</span>' : c.kind === 'regular' ? `<span class="kind regular">정기 ${c.legs}회</span>` : c.kind === 'tender' ? '<span class="kind tender">입찰</span>' : `<span class="kind">${KINDS[c.kind] ? KINDS[c.kind].name : ''}</span>`;
 
 /* ---- ship pieces, shared by the exchange and the fleet screen ---- */
 function jobRow(c, sh, est) {
-  const fits = freeCap(sh) >= c.q;
-  return `<div class="con"><div class="l1"><span class="route">→ ${PORTS[c.to].name} <small>${GOODS[c.good].name} ${c.q}t</small></span><span class="pay">운임 ${won(c.pay)}</span></div>
+  const ok = fits(sh, c), q = lotQ(sh, c);
+  const hint = c.kind === 'urgent' ? ' · 기한을 지키면 신뢰가 크게 오름' : c.kind === 'regular' ? ' · 시황과 무관한 고정 운임, 배달하면 다음 회차가 내 몫' : c.kind === 'tender' ? ` · 남은 ${nf(c.q)}t 중 ${nf(q)}t` : '';
+  return `<div class="con${c.kind === 'tender' ? ' tender' : ''}"><div class="l1"><span class="route">${kindTag(c)} → ${PORTS[c.to].name} <small>${GOODS[c.good].name} ${nf(q)}t</small></span><span class="pay">운임 ${won(est.pay)}</span></div>
   <div class="costs"><span>${est.days}일 · ${nf(c.km)}km</span><span>연료 ${won(est.fuelCost)}</span><span>고정비·입항료 ${won(est.cost - est.fuelCost)}</span>${est.worst >= 2 ? `<span>${wxTag(est.worst)} 구간</span>` : ''}</div>
-  <div class="l1"><span class="net ${est.net >= 0 ? 'pos' : 'neg'}">순이익 ${sgn(est.net)} <small>(하루 ${sgn(est.perDay)})</small></span><span class="acts"><small class="muted">기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small><button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}" ${fits ? '' : 'disabled'}>${fits ? '싣기' : '공간 부족'}</button></span></div></div>`;
+  <div class="l1"><span class="net ${est.net >= 0 ? 'pos' : 'neg'}">순이익 ${sgn(est.net)} <small>(하루 ${sgn(est.perDay)})</small></span><span class="acts"><small class="muted">기한 ${c.kind === 'tender' ? (c.deadline - S.day) + '일(입찰)' : c.due + '일'}${c.kind === 'tender' ? '' : ` · 마감 ${c.offer - S.day}일`}${hint}</small><button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}" ${ok ? '' : 'disabled'}>${ok ? '싣기' : '공간 부족'}</button></span></div></div>`;
 }
 function fuelCard(sh) {
   const t = T(sh); if (!t.tank) return '';
@@ -964,8 +998,9 @@ function loadedCard(sh) {
 }
 function jobsCard(sh) {
   const pid = sh.loc, P = PORTS[pid];
-  const jobs = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good)).map(c => ({ c, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.perDay - a.e.perDay);
-  return `<div class="card board"><h3>${P.name} 화물 벽보 ${jobs.length}건 · ${esc(sh.name)} 남은 공간 ${freeCap(sh)}t · 하루 순이익 순</h3>${jobs.length ? `<div class="list">${jobs.map(x => jobRow(x.c, sh, x.e)).join('')}</div>` : '<p class="muted" style="margin:0">지금 이 배가 실을 수 있는 의뢰가 없습니다. 하루 이틀 기다리거나, 의뢰가 많은 항구로 빈 배로 옮기세요(공선 항해).</p>'}</div>`;
+  const jobs = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good)).map(c => ({ c, e: jobNet(sh, c) || (c.kind === 'tender' ? null : null) })).filter(x => x.e).sort((a, b) => (b.c.kind === 'tender') - (a.c.kind === 'tender') || b.e.perDay - a.e.perDay);
+  const lock = S.trust < KINDS.urgent.trust ? `<p class="muted" style="margin:0 0 8px;font-size:12px">화주 신뢰 ${Math.round(S.trust)} · 신뢰 ${KINDS.urgent.trust}이면 긴급 의뢰, ${KINDS.regular.trust}이면 정기 운송이 붙기 시작합니다. 기한을 지켜 배달하면 신뢰가 오릅니다.</p>` : S.trust < KINDS.regular.trust ? `<p class="muted" style="margin:0 0 8px;font-size:12px">화주 신뢰 ${Math.round(S.trust)} · ${KINDS.regular.trust}이면 정기 운송이 열립니다.</p>` : '';
+  return `<div class="card board"><h3>${P.name} 화물 벽보 ${jobs.length}건 · ${esc(sh.name)} 남은 공간 ${freeCap(sh)}t · 하루 순이익 순</h3>${lock}${jobs.length ? `<div class="list">${jobs.map(x => jobRow(x.c, sh, x.e)).join('')}</div>` : '<p class="muted" style="margin:0">지금 이 배가 실을 수 있는 의뢰가 없습니다. 하루 이틀 기다리거나, 의뢰가 많은 항구로 빈 배로 옮기세요(공선 항해).</p>'}</div>`;
 }
 function departCard(sh, compact) {
   const t = T(sh), pid = sh.loc, R = routes(pid, t);
@@ -985,14 +1020,26 @@ function sellBlock(sh) {
     ? `<div class="row2"><span>${esc(sh.name)}을(를) ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>`
     : `<button class="btn" data-act="askSell" data-id="${sh.id}">${esc(sh.name)} 매각 · ${won(shipValue(sh))}</button>`;
 }
+function routeCard(sh) {
+  if (!S.autoOK) return `<div class="card"><h3>자동 항로 · 잠김</h3><p class="muted" style="margin:0">대형 화주 입찰에서 처음 낙찰받아 물량을 다 나르면 열립니다. 열리면 두 항구를 정해 두고 그 구간 화물을 알아서 싣고 오가게 할 수 있습니다.</p></div>`;
+  if (sh.route) return `<div class="card"><h3>자동 항로 ${PORTS[sh.route.a].name} ⇄ ${PORTS[sh.route.b].name}</h3><p class="muted" style="margin:0 0 8px">그 구간 의뢰(입찰 화물 우선)를 싣고 오가며, 연료가 모자라면 채우고 선체가 45 아래면 정비소에서 수리합니다. 짐이 없으면 2일 기다렸다가 빈 배로 건너갑니다. 도착해도 일시정지하지 않습니다.</p><button class="btn" data-act="route" data-id="${sh.id}" data-a="">자동 항로 해제</button></div>`;
+  const ports = Object.keys(routes(sh.loc || sh.voy.to, T(sh)).dist).filter(p => PORTS[p] && portOpen(p));
+  const opt = sel => ports.map(p => `<option value="${p}" ${p === sel ? 'selected' : ''}>${PORTS[p].name}</option>`).join('');
+  const a = sh.loc || sh.voy.to;
+  return `<div class="card"><h3>자동 항로 맡기기</h3><div class="row2"><select id="rtA" aria-label="출발 항구">${opt(a)}</select><span>⇄</span><select id="rtB" aria-label="도착 항구">${opt(ports.find(p => p !== a))}</select><button class="btn pri" data-act="route" data-id="${sh.id}" data-a="sel">맡기기</button></div></div>`;
+}
 function shipDetail(sh) {
   const t = T(sh), docked = !!sh.loc && !sh.voy;
   let h = `<div class="dhead"><button class="back" data-act="back">← 선대</button><h2>${esc(sh.name)}</h2><span class="tag">${t.name}</span></div>`;
   h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>연료</small><b>${t.tank ? `${sh.fuel.toFixed(2)} / ${t.tank}t` : '돛(무연료)'}</b></div><div><small>연료 소모</small><b>${t.burn ? t.burn + 't/일' : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>고정비</small><b>${won(wage(sh))}/일</b></div><div><small>입항료</small><b>${won(portFee(t))}</b></div><div><small>매각가(시세)</small><b>${won(shipValue(sh))}</b></div><div><small>장부가</small><b>${won(bookValue(sh))}</b></div><div><small>누적 손익</small><b class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</b></div></div>`;
   h += `<div class="status">${statusText(sh)}${sh.voy ? ` · 남은 연료 ${sh.fuel.toFixed(2)}t · 현재 해역 ${AREAS[areaAt(sh.voy.segs, sh.voy.done)]} ${wxTag(wxNow(areaAt(sh.voy.segs, sh.voy.done)))}` : ''}</div>`;
+  h += `<div class="card"><h3>선체 상태 ${Math.round(sh.cond)} / 100${sh.cond < 40 ? ' · <span class="neg">고장 위험</span>' : sh.cond < 60 ? ' · 연료를 더 씀' : ''}</h3><div class="bar hull${sh.cond < 40 ? ' bad' : ''}" style="height:8px;margin-bottom:8px"><i style="width:${Math.round(sh.cond)}%"></i></div><p class="muted" style="margin:0;font-size:12.5px">항해할수록 닳고 강풍·태풍에서 더 닳습니다. 낮을수록 연료를 더 쓰고(지금 +${Math.round((condFuel(sh) - 1) * 100)}%), 40 아래에서는 기관 고장이 나며, 20 아래면 정비소가 있는 항구로만 갈 수 있습니다. ${docked && yardAt(sh.loc) && sh.cond < 99.5 ? `<button class="btn" data-act="bld" data-b="yard" data-p="${sh.loc}" style="margin-top:6px">${PORTS[sh.loc].name} 조선·정비소에서 수리 →</button>` : docked && !yardAt(sh.loc) ? `수리는 규모가 큰 항구나 모항의 정비소에서 합니다.` : ''}</p></div>`;
+  if (t.role === 'cargo') h += sh.capt ? `<div class="card"><h3>선장 ${esc(sh.capt.name)} · ${CAPTAINS[sh.capt.kind].name}</h3><p style="margin:0 0 8px">${CAPTAINS[sh.capt.kind].skill}: ${CAPTAINS[sh.capt.kind].desc}. 급여 하루 ${wonS(capWage(sh))}.</p><button class="btn" data-act="fire" data-id="${sh.id}">하선시키기</button></div>` : `<div class="card"><h3>선장 없음</h3><p class="muted" style="margin:0 0 8px">닻 다방에서 선장을 고용하면 연료비·속도·악천후 손실이 달라집니다.</p><button class="btn" data-act="bld" data-b="teahouse" data-id="${sh.id}">닻 다방에서 선장 찾기 →</button></div>`;
+  if (t.role === 'cargo') h += routeCard(sh);
   if (sh.lastTrip) { const L = sh.lastTrip; h += `<div class="status">지난 항차 ${PORTS[L.from].name} → ${PORTS[L.to].name} · ${L.days}일 · 운임 ${won(L.freight)} · 순이익 <b class="${L.net >= 0 ? 'pos' : 'neg'}">${sgn(L.net)}</b></div>`; }
   if (!docked) return h + loadedCard(sh);
   const P = PORTS[sh.loc], busy = sh.mode === 'fishing' || sh.mode === 'react';
+  if (sh.mode === 'repair') return h + `<div class="card"><h3>수리 중</h3><p style="margin:0">${PORTS[sh.loc].name} 조선·정비소에서 ${Math.max(0, sh.busy - S.day)}일 뒤 끝납니다. 그동안 출항할 수 없습니다.</p></div>`;
   if (sh.mode === 'layup' || sh.mode === 'react') {
     return h + `<div class="card"><h3>계선 중</h3><p style="margin:0 0 8px">고정비가 ${won(fullWage(sh))} → ${won(wage(sh))}/일로 줄었습니다. 다시 운항하려면 재가동 비용과 2일이 듭니다.</p>${sh.mode === 'layup' ? `<button class="btn pri wide" data-act="react" data-id="${sh.id}" ${S.cash >= fullWage(sh) * 5 ? '' : 'disabled'}>재가동 · ${won(fullWage(sh) * 5)} · 2일</button>` : '<p class="muted" style="margin:0">재가동 중입니다.</p>'}</div><div class="card"><h3>매각</h3>${sellBlock(sh)}</div>`;
   }
@@ -1011,19 +1058,44 @@ function shipDetail(sh) {
 
 /* ---- 모항 ---- */
 const BLD = {
-  exchange: { name: '거래소', role: '화물 벽보 · 중고선 매매' },
-  yard: { name: '조선·정비소', role: '신조 발주 · 수리·개조는 준비 중' },
-  teahouse: { name: '닻 다방', role: '시황 소문 · 선박 검사 · 보험', locked: '아직 문을 열지 않았습니다. 문을 열면 선장·상인에게 시황 소문을 듣고, 배의 검사 등급(갑·을·병)을 받아 더 좋은 계약에 나서고, 태풍 피해에 대비해 선체 보험에 들 수 있습니다.' },
+  exchange: { name: '거래소', role: '화물 벽보 · 입찰 · 중고선 매매', who: '거래소 서기 박씨', intro: '어서 오시오. 벽보에 붙은 의뢰를 골라 배에 실으면 되오. 배달하면 운임을 받고, 기한을 지키면 화주들이 당신 회사를 믿게 되지. 28일마다 큰 화주가 입찰을 붙이니 그것도 챙기시오.' },
+  yard: { name: '조선·정비소', role: '수리 · 신조 발주', who: '정비소 반장 최씨', intro: '배는 바다에 나갈수록 닳소. 선체가 낮으면 기름을 더 먹고, 40 아래면 기관이 서기도 하지. 여기서 고치는 동안은 출항 못 하오. 새 배도 여기서 주문받소.' },
+  teahouse: { name: '닻 다방', role: '선장 구인 · 시황 소문 · 검사 · 보험', who: '다방 마담', intro: '선장님들이 여기서 일감을 기다리지요. 기름을 아끼는 분, 거친 날씨에 강한 분, 빨리 모는 분이 있어요. 소문 듣기와 선박 검사, 보험은 곧 시작해요.' },
 };
+// first visit: a short hello from the person who runs the building; later visits go straight in
+function introCard(b) {
+  if (S.seen[b]) return '';
+  return `<div class="card intro"><h3>${BLD[b].who}</h3><p style="margin:0 0 8px">「${BLD[b].intro}」</p><button class="btn" data-act="seen" data-b="${b}">알겠어요</button></div>`;
+}
+function teahousePanel() {
+  const ships = S.ships.filter(s => T(s).role === 'cargo');
+  const pick = UI.capShip && ships.find(s => s.id === UI.capShip) || ships.find(s => !s.capt) || ships[0];
+  let h = `<div class="card"><h3>선장 구인 · ${30 - (S.day % 30)}일 뒤 새 얼굴 · 고용할 배</h3>${ships.length ? `<div class="seg">${ships.map(s => `<button data-act="capship" data-id="${s.id}" class="${pick && s.id === pick.id ? 'on' : ''}">${esc(s.name)}${s.capt ? ' ✓' : ''}</button>`).join('')}</div>` : '<p class="muted">화물선이 없습니다.</p>'}</div>`;
+  if (pick && pick.capt) h += `<div class="hint">${esc(pick.name)}에는 이미 ${esc(pick.capt.name)} 선장(${CAPTAINS[pick.capt.kind].name})이 있습니다. 새로 고용하면 이전 선장은 내립니다.</div>`;
+  h += `<div class="yard">${S.capPool.map(k => { const C = CAPTAINS[k.kind]; return `<div class="ycard"><div class="t"><b>${esc(k.name)} 선장</b><span class="tag cap">${C.name}</span></div><p style="margin:0;font-size:13px">${C.skill}: ${C.desc}</p>${pick ? `<dl><dt>고용비</dt><dd>${won(capFee(pick))}</dd><dt>급여</dt><dd>${wonS(fullWage(pick) * 0.03)}/일</dd></dl><button class="btn pri" data-act="hire" data-k="${k.id}" data-id="${pick.id}" ${S.cash >= capFee(pick) ? '' : 'disabled'}>${esc(pick.name)}에 태우기</button>` : ''}</div>`; }).join('') || '<p class="muted">지금은 일감을 찾는 선장이 없습니다.</p>'}</div>`;
+  h += `<div class="card"><h3>준비 중 (다음 단계)</h3><p class="muted" style="margin:0">시황 소문 듣기, 선박 검사 등급(갑·을·병), 태풍 피해를 보장하는 선체 보험.</p></div>`;
+  return h;
+}
+function repairPanel() {
+  const pid = UI.port || S.home;
+  if (!yardAt(pid)) return `<div class="hint">${PORTS[pid].name}은(는) 작은 나루라 정비소가 없습니다. 수리는 규모가 큰 항구나 모항에서 합니다. 신조 발주는 여기서도 됩니다.</div>`;
+  const mine = S.ships.filter(s => s.loc === pid && !s.voy);
+  let h = `<div class="card"><h3>수리 · ${PORTS[pid].name}에 있는 내 배</h3>`;
+  if (!mine.length) return h + '<p class="muted" style="margin:0">이 항구에 정박한 배가 없습니다.</p></div>';
+  h += `<div class="list">${mine.map(sh => `<div class="row2"><b>${esc(sh.name)}</b><span class="muted">선체 ${Math.round(sh.cond)}${sh.mode === 'repair' ? ` · 수리 중 ${sh.busy - S.day}일 남음` : ''}</span>${sh.mode === 'repair' || sh.cond >= 99.5 ? '' : sh.cons.length ? '<small class="muted">화물을 내린 뒤 수리</small>' : `<button class="btn${sh.cond < 60 ? ' pri' : ''}" data-act="repair" data-id="${sh.id}">수리 ${won(repairCost(sh))} · ${repairDays(sh)}일</button>`}</div>`).join('')}</div>`;
+  return h + `<p class="muted" style="margin:8px 0 0;font-size:12px">수리비는 현금이 모자라면 외상 한도 안에서 냅니다. 수리하는 동안은 출항할 수 없습니다.</p></div>`;
+}
 function homePanel() {
   if (UI.bld === 'exchange') return exchangePanel();
-  if (UI.bld === 'yard') return backBar('조선·정비소') + yardPanel();
-  if (UI.bld === 'teahouse') return backBar('닻 다방') + `<div class="card"><h3>준비 중</h3><p style="margin:0">${BLD.teahouse.locked}</p></div>`;
+  if (UI.bld === 'yard') return backBar('조선·정비소') + introCard('yard') + repairPanel() + yardPanel();
+  if (UI.bld === 'teahouse') return backBar('닻 다방') + introCard('teahouse') + teahousePanel();
   const pid = UI.port || S.home, P = PORTS[pid], area = portArea(pid);
   let h = `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2>${pid === S.home ? '<span class="tag a">모항</span>' : `<button class="back" data-act="gohome">모항으로</button>`}</div>`;
   h += `<div class="card kv"><div><small>기름값</small><b>${won(fuelPrice(pid))}/t</b></div><div><small>${AREAS[area]} 오늘·내일·모레</small><b style="font-family:var(--f-body)">${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</b></div><div><small>출발 화물</small><b>${S.contracts.filter(c => c.from === pid).length}건</b></div></div>`;
   if (S.events.some(e => e.port === pid)) h += `<div class="hint">물동량 급증 중 — 이 항구에서 나가는 화물의 운임이 40% 높습니다.</div>`;
-  h += `<div class="blds">${Object.entries(BLD).map(([k, b]) => `<button class="bld${b.locked ? ' locked' : ''}" data-act="bld" data-b="${k}"><b>${b.name}${b.locked ? ' · 준비 중' : ''}</b><small>${b.role}</small>${k === 'exchange' ? `<small>화물 ${S.contracts.filter(c => c.from === pid).length}건 · 중고선 ${S.used.length}척</small>` : ''}</button>`).join('')}</div>`;
+  const tn = S.tender, worn = S.ships.filter(s => s.loc === pid && s.cond < 60 && yardAt(pid)).length;
+  const sub = { exchange: `화물 ${S.contracts.filter(c => c.from === pid).length}건${tn && tn.state === 'open' && !tn.bid ? ' · <b class="neg">입찰 공고</b>' : ''}`, yard: yardAt(pid) ? (worn ? `수리 필요 ${worn}척` : '수리할 배 없음') : '이 나루엔 정비소 없음 (발주만)', teahouse: `선장 ${S.capPool.length}명 대기` };
+  h += `<div class="blds">${Object.entries(BLD).map(([k, b]) => `<button class="bld" data-act="bld" data-b="${k}"><b>${b.name}</b><small>${b.role}</small><small>${sub[k]}</small></button>`).join('')}</div>`;
   const mine = S.ships.filter(s => s.loc === pid);
   h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3>${mine.length ? `<div class="list">${mine.map(shipCard).join('')}</div>` : `<p class="muted" style="margin:0">이 항구에 정박한 배가 없습니다.</p>${otherPorts()}`}</div>`;
   return h;
@@ -1035,8 +1107,11 @@ function otherPorts() {
 function exchangePanel() {
   const pid = UI.port || S.home, P = PORTS[pid];
   let h = backBar(`${P.name} 거래소`);
-  h += `<div class="seg"><button data-act="extab" data-x="cargo" class="${UI.exTab !== 'sp' ? 'on' : ''}">화물 벽보</button><button data-act="extab" data-x="sp" class="${UI.exTab === 'sp' ? 'on' : ''}">중고선 매매</button></div>`;
+  const tn = S.tender, tdot = tn && tn.state === 'open' && !tn.bid ? ' <span class="kind urgent">공고</span>' : tn && tn.state === 'won' ? ' <span class="kind tender">진행</span>' : '';
+  h += introCard('exchange');
+  h += `<div class="seg"><button data-act="extab" data-x="cargo" class="${UI.exTab === 'cargo' ? 'on' : ''}">화물 벽보</button><button data-act="extab" data-x="tender" class="${UI.exTab === 'tender' ? 'on' : ''}">입찰${tdot}</button><button data-act="extab" data-x="sp" class="${UI.exTab === 'sp' ? 'on' : ''}">중고선 매매</button></div>`;
   if (UI.exTab === 'sp') return h + spPanel(pid);
+  if (UI.exTab === 'tender') return h + tenderPanel();
   const ships = S.ships.filter(s => s.loc === pid && canWork(s) && T(s).role === 'cargo');
   if (!ships.length) {
     const cons = S.contracts.filter(c => c.from === pid).sort((a, b) => b.pay - a.pay);
@@ -1049,6 +1124,26 @@ function exchangePanel() {
   if (sh.cons.length) h += loadedCard(sh) + fuelCard(sh) + departCard(sh, true);
   else h += departCard(sh, true);
   return h;
+}
+function tenderPanel() {
+  const tn = S.tender, next = TENDER_EVERY - (S.day % TENDER_EVERY);
+  const about = `<p class="muted" style="margin:0">28일마다 대형 화주가 한 구간의 큰 물량을 맡길 회사를 고릅니다. 라이벌 3사와 겨루며, 화주 신뢰가 높고 그 물량을 ${TENDER_DAYS}일 안에 나를 배가 많을수록, 운임을 낮게 부를수록 이깁니다. 낙찰받으면 기한 안에 모두 날라야 하고, 못 채우면 남은 물량 운임의 15%를 위약금으로 내고 신뢰가 15 떨어집니다. <b>처음 완수하면 자동 항로가 열립니다.</b></p>`;
+  if (!tn || tn.state === 'skip' || tn.state === 'lost' || tn.state === 'done' || tn.state === 'failed') {
+    const last = tn ? { skip: '지난 공고에는 응찰하지 않았습니다.', lost: '지난 입찰에서는 졌습니다.', done: '지난 입찰 계약을 완수했습니다.', failed: '지난 입찰 계약을 못 채워 위약금을 냈습니다.' }[tn.state] : '';
+    return `<div class="card"><h3>다음 입찰 공고 ${next}일 뒤</h3>${last ? `<p style="margin:0 0 8px">${last}</p>` : ''}${about}</div>`;
+  }
+  const head = `<div class="card"><h3>${tn.shipper} · ${GOODS[tn.good].name} ${nf(tn.q)}t · ${PORTS[tn.from].name} → ${PORTS[tn.to].name} (${nf(tn.km)}km)</h3>`;
+  if (tn.state === 'won') {
+    const left = S.contracts.find(c => c.tid === tn.id);
+    return head + `<p style="margin:0 0 6px">낙찰 · 운임 톤당 ${won(tn.rate)} · 기한 ${dateStr(tn.due)} (${tn.due - S.day}일 남음)</p><div class="prog"><i style="width:${clamp(tn.delivered / tn.q * 100, 0, 100)}%"></i></div><p class="muted" style="margin:6px 0 0">배달 ${nf(tn.delivered)} / ${nf(tn.q)}t · ${PORTS[tn.from].name} 벽보에 남은 물량 ${nf(left ? left.q : 0)}t (배마다 남은 공간만큼 나눠 실을 수 있습니다)</p>${UI.port !== tn.from ? `<button class="btn pri" data-act="bld" data-b="exchange" data-p="${tn.from}" style="margin-top:8px">${PORTS[tn.from].name} 거래소로</button>` : ''}</div>`;
+  }
+  const cap = tenderCapacity(tn), ratio = cap / tn.q;
+  const oddsName = { high: '<span class="pos">높음</span>', mid: '보통', low: '<span class="neg">낮음</span>' };
+  const rows = ['low', 'mid', 'high'].map(b => `<button class="dest${tn.bid === b ? ' has' : ''}" data-act="bid" data-b="${b}"><b>운임 ${{ low: '낮게 −10%', mid: '보통', high: '높게 +15%' }[b]}</b><em>${won(tn.q * tn.rate * BID_MUL[b])}</em><small>승산 ${oddsName[tenderOdds(tn, b)]}</small><small style="text-align:right">${tn.bid === b ? '응찰함' : ''}</small></button>`).join('');
+  return head + `<p style="margin:0 0 8px">응찰 마감 ${dateStr(tn.close)} (${tn.close - S.day}일 뒤) · 낙찰되면 ${TENDER_DAYS}일 안에 다 날라야 합니다</p>
+  <div class="kv" style="margin-bottom:8px"><div><small>내 선대가 ${TENDER_DAYS}일에 나를 수 있는 양</small><b>${nf(cap)}t (${Math.round(ratio * 100)}%)</b></div><div><small>화주 신뢰</small><b>${Math.round(S.trust)}</b></div></div>
+  ${ratio < 1 ? '<div class="hint" style="margin-bottom:8px">지금 선대로는 물량을 다 나르기 어렵습니다. 배 한 척으로는 거의 이길 수 없고, 같은 종류의 배가 두 척이면 승산이 생깁니다.</div>' : ''}
+  <div class="dests">${rows}</div></div>` + `<div class="card">${about}</div>`;
 }
 function spPanel(pid) {
   let h = `<p class="muted" style="margin:0">중고선(S&amp;P)은 바로 쓸 수 있지만 연식만큼 고정비가 비쌉니다. 매입가는 운임지수를 따라 오르내리고, 팔 때는 시세의 90%를 받습니다. <b>순위와 목표는 시세가 아닌 장부가로 계산</b>하므로, 사고팔기만으로는 순자산이 늘지 않습니다.</p>`;
@@ -1064,8 +1159,9 @@ function spPanel(pid) {
   return h;
 }
 function yardPanel() {
-  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 고정비가 싸고 오래 씁니다. 바로 쓸 배는 거래소의 중고선 매매에서 구할 수 있습니다. 수리·개조는 준비 중입니다.</p>`;
-  h += `<div class="card"><h3>신조 발주 · 현금 ${won(S.cash)}</h3><div class="yard">`;
+  const n = GRADES[S.grade + 1];
+  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 고정비가 싸고 오래 씁니다. 바로 쓸 배는 거래소의 중고선 매매에서 구할 수 있습니다.</p>`;
+  h += `<div class="card"><h3>신조 발주 · 현금 ${won(S.cash)} · 선대 ${fleetCount()}/${fleetLimit()}척 (${GRADES[S.grade].name})</h3>${fleetCount() >= fleetLimit() ? `<div class="hint" style="margin-bottom:8px">선대 한도가 찼습니다.${n ? ` 배달 ${n.need}건(지금 ${S.stats.delivered}) · 화주 신뢰 ${n.trust}(지금 ${Math.round(S.trust)})이면 「${n.name}」로 올라 ${n.fleet}척까지 늘릴 수 있습니다.` : ''} 작은 배를 팔아 자리를 만들 수도 있습니다.</div>` : ''}<div class="yard">`;
   for (const [k, t] of Object.entries(SHIPS)) {
     const lock = t.era > S.era, cost = newPrice(t);
     h += `<div class="ycard${lock ? ' locked' : ''}"><div class="t"><b>${t.name}</b><span class="tag">${ROLE[t.role]}</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>속도</dt><dd>${t.speed}km/일</dd><dt>고정비</dt><dd>${won(t.wage)}/일</dd><dt>연료</dt><dd>${t.burn ? t.burn + 't/일' : '돛(무연료)'}</dd><dt>구역</dt><dd>${RANGE[t.range]}${t.river ? ' + 강' : ''}</dd><dt>건조</dt><dd>${t.build}일</dd></dl>${lock ? `<span class="muted" style="font-size:12px">${t.era}시대 해금 · 순자산 ${won(ERA[t.era].need)}</span>` : `<button class="btn pri" data-act="order" data-type="${k}" ${S.cash >= cost ? '' : 'disabled'}>발주 ${won(cost)}</button>`}</div>`;
@@ -1116,9 +1212,14 @@ function fleetPanel() {
   return h + forecastCard();
 }
 function ledgerCard() {
-  const st = S.stats, op = st.freight + st.other - st.fuel - st.wage - st.fees - st.repair;
+  const st = S.stats, op = st.freight + st.other - st.fuel - st.wage - st.fees - st.repair - st.hire - st.penalty;
   const row = (k, v, sign) => `<tr><td>${k}</td><td class="r ${sign < 0 && v ? 'neg' : ''}">${sign < 0 && v ? '−' : ''}${won(v)}</td></tr>`;
-  return `<div class="card"><h3>회사 장부 · 누적</h3><table class="trip">${row('운송 수입 (운임)', st.freight, 1)}${row('부가 수입 (조업·관광·급유)', st.other, 1)}${row('연료 구입비', st.fuel, -1)}${row('고정비 (선원·관리)', st.wage, -1)}${row('입항료·재가동', st.fees, -1)}${row('수리비', st.repair, -1)}<tr class="sum"><td>영업 이익</td><td class="r ${op >= 0 ? 'pos' : 'neg'}">${sgn(op)}</td></tr>${row('선박 매입·발주 (투자)', st.shipBuy, -1)}${row('선박 매각 대금', st.shipSell, 1)}</table><p class="muted" style="margin:8px 0 0;font-size:12px">연료는 살 때 장부에 들어갑니다(항차 정산표는 실제로 태운 양). 순위와 목표는 배를 시세가 아닌 장부가(감가상각만 반영)로 계산합니다. 항차 ${st.trips}회 · 배달 ${st.delivered}건 · 지연 ${st.late}건 · 빈 배 항해 ${st.ballast}회.</p></div>`;
+  return `<div class="card"><h3>회사 장부 · 누적</h3><table class="trip">${row('운송 수입 (운임)', st.freight, 1)}${row('부가 수입 (조업·관광·급유)', st.other, 1)}${row('연료 구입비', st.fuel, -1)}${row('고정비 (선원·관리·선장 급여)', st.wage, -1)}${row('입항료·재가동', st.fees, -1)}${row('수리비', st.repair, -1)}${row('선장 고용비', st.hire, -1)}${row('입찰 위약금', st.penalty, -1)}<tr class="sum"><td>영업 이익</td><td class="r ${op >= 0 ? 'pos' : 'neg'}">${sgn(op)}</td></tr>${row('선박 매입·발주 (투자)', st.shipBuy, -1)}${row('선박 매각 대금', st.shipSell, 1)}</table><p class="muted" style="margin:8px 0 0;font-size:12px">연료는 살 때 장부에 들어갑니다(항차 정산표는 실제로 태운 양). 순위와 목표는 배를 시세가 아닌 장부가(감가상각만 반영)로 계산합니다. 항차 ${st.trips}회 · 배달 ${st.delivered}건 · 지연 ${st.late}건 · 빈 배 항해 ${st.ballast}회 · 선장 덕에 아낀 연료비 ${won(st.capSave)} · 입찰 낙찰 ${st.tenderWon} / 완수 ${st.tenderDone} / 실패 ${st.tenderFail}.</p></div>`
+    + companyCard();
+}
+function companyCard() {
+  const n = GRADES[S.grade + 1];
+  return `<div class="card"><h3>회사 등급 · 화주 신뢰</h3><div class="kv"><div><small>등급</small><b style="font-family:var(--f-body)">${S.grade}. ${GRADES[S.grade].name}</b></div><div><small>선대 한도</small><b>${fleetCount()} / ${fleetLimit()}척</b></div><div><small>화주 신뢰</small><b>${Math.round(S.trust)}</b></div></div>${n ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">다음 등급 「${n.name}」(${n.fleet}척): 배달 ${S.stats.delivered}/${n.need}건 · 신뢰 ${Math.round(S.trust)}/${n.trust}</p>` : ''}<p class="muted" style="margin:6px 0 0;font-size:12px">신뢰는 기한을 지켜 배달하면 오르고(높을수록 천천히), 늦으면 5, 긴급을 늦으면 8, 정기 회차를 놓치면 6, 입찰을 못 채우면 15 떨어집니다. 신뢰가 높으면 운임이 조금 오르고(최대 +5%) 긴급(${KINDS.urgent.trust})·정기(${KINDS.regular.trust}) 의뢰가 열립니다.</p></div>`;
 }
 function chartSvg() {
   const H = S.hist; if (H.length < 2) return '<p class="muted" style="margin:0">기록이 쌓이면 그래프가 그려집니다.</p>';
@@ -1151,7 +1252,7 @@ function rankPanel() {
   h += `<div class="card chart"><h3>순자산 추이 · 로그 눈금</h3>${chartSvg()}</div>`;
   h += `<div class="card"><h3>뉴스</h3><div class="news">${S.news.map(n => `<div><span>${dateStr(n.d)}</span><p style="margin:0">${esc(n.t)}</p></div>`).join('')}</div></div>`;
   h += metricsCard();
-  h += `<div class="card"><h3>설정</h3><div class="list"><label class="chk"><input type="checkbox" id="optPause" ${S.autoPause ? 'checked' : ''}> 배가 도착하면 일시정지</label><label class="chk"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 항차마다 정산표 보기</label><div class="row2">${UI.confirm === 'new' ? `<span>진행 중인 게임이 지워집니다.</span><button class="btn warn" data-act="newgame">새 게임 시작</button><button class="btn" data-act="cancel">취소</button>` : `<button class="btn" data-act="askNew">새 게임</button>`}</div></div></div>`;
+  h += `<div class="card"><h3>설정</h3><div class="list"><label class="chk"><input type="checkbox" id="optPause" ${S.autoPause ? 'checked' : ''}> 배가 도착하면 일시정지</label><label class="chk"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 항차마다 정산표 보기</label><label class="chk">항구의 낮·밤 <select id="optDay"><option value="auto" ${UI.dayMode === 'auto' ? 'selected' : ''}>내 시계를 따라 (19시~6시 밤)</option><option value="day" ${UI.dayMode === 'day' ? 'selected' : ''}>늘 낮</option><option value="night" ${UI.dayMode === 'night' ? 'selected' : ''}>늘 밤</option></select></label><div class="row2">${UI.confirm === 'new' ? `<span>진행 중인 게임이 지워집니다.</span><button class="btn warn" data-act="newgame">새 게임 시작</button><button class="btn" data-act="cancel">취소</button>` : `<button class="btn" data-act="askNew">새 게임</button>`}</div></div></div>`;
   return h;
 }
 // measured during real play, for the human test sheet (this browser session only)
@@ -1204,6 +1305,8 @@ function tripModal(sh, t) {
   const low = T(sh).tank && sh.fuel < T(sh).tank * 0.4;
   modal(`<h1 style="font-size:22px">항차 정산 · ${esc(sh.name)}</h1><p style="margin:0 0 8px">${PORTS[t.from].name} → ${P.name} · ${t.days}일 · 화물 ${t.jobs}건${t.late ? ` (지연 ${t.late}건, 운임 절반)` : ''}</p>
   <table class="trip">${row('운임 수입', t.freight, 1)}${row(`연료비 (${t.fuelT.toFixed(2)}t)`, t.fuelCost, -1)}${row('고정비 (선원·관리)', t.wage, -1)}${row('입항료', t.fee, -1)}${t.extra ? row('예인·수리', t.extra, -1) : ''}<tr class="sum"><td>이번 항차 순이익</td><td class="r ${t.net >= 0 ? 'pos' : 'neg'}">${sgn(t.net)}</td></tr></table>
+  ${t.capt ? `<p class="pos" style="margin:8px 0 0;font-size:13px">${CAPTAINS[t.capt].skill}(${esc(sh.capt ? sh.capt.name : '')} 선장): ${t.capt === 'swift' ? `약 ${t.capDays.toFixed(1)}일 빨리 도착` : `연료비 ${won(t.capSave)} 절약`}</p>` : ''}
+  <p class="muted" style="font-size:12.5px;margin:6px 0 0">선체 상태 ${Math.round(t.cond + t.wear)} → ${Math.round(t.cond)}${t.cond < 40 ? ' · <span class="neg">고장 위험, 수리가 필요합니다</span>' : t.cond < 60 ? ' · 수리를 생각할 때입니다' : ''} · 화주 신뢰 ${Math.round(S.trust)}</p>
   <p class="muted" style="font-size:12.5px;margin:8px 0">${t.net >= 0 ? (t.freight ? '운임이 비용을 넘었습니다. 돌아오는 길에도 짐을 실으면 이익이 더 커집니다.' : '') : t.freight ? '비용이 운임보다 컸습니다. 하루 순이익이 높은 의뢰를 고르거나 연료가 싼 항구에서 채우세요.' : '빈 배 이동은 비용만 듭니다. 화물이 많은 항구로 옮길 때만 쓰세요.'}</p>
   ${here ? '' : `<p class="hint" style="margin:0 0 8px">${P.name}에는 지금 이 배가 실을 화물이 없습니다. 하루 이틀 기다리면 새 의뢰가 붙고, 급하면 빈 배로 화물이 많은 항구(부산·인천 등)로 옮길 수 있습니다.</p>`}<h3>다음 선택</h3><div class="nexts">
   <button class="btn pri wide" data-act="tripnext" data-n="ex" data-id="${sh.id}" data-p="${t.to}">${here ? `${P.name} 거래소에서 다음 의뢰 고르기 · ${here}건` : `${P.name}에서 다음 행선지 고르기 · 지금 실을 의뢰 없음`}</button>
@@ -1258,7 +1361,7 @@ document.addEventListener('click', ev => {
     case 'step': setPlaying(false); tick(); UI.t = S.day; break;
     case 'mapview': UI.mapView = el.dataset.v; UI.view = ''; break;
     case 'p3tab': openBld(el.dataset.t); SND.play('click'); break;
-    case 'bld': openBld(el.dataset.b, el.dataset.p, id); break;
+    case 'bld': openBld(el.dataset.b, el.dataset.p, id); if (el.dataset.b === 'teahouse' && id) UI.capShip = id; break;
     case 'extab': UI.exTab = el.dataset.x; break;
     case 'exship': UI.exShip = id; break;
     case 'fsub': UI.fsub = el.dataset.x; UI.ship = null; break;
@@ -1266,6 +1369,15 @@ document.addEventListener('click', ev => {
     case 'goport': UI.port = el.dataset.p; break;
     case 'goal-ex': { const s2 = S.ships.find(x => x.loc && canWork(x) && T(x).role === 'cargo'); openBld('exchange', s2 ? s2.loc : S.home, s2 ? s2.id : 0); break; }
     case 'goal-yard': openBld('yard', S.home); break;
+    case 'goal-tea': openBld('teahouse', S.home); break;
+    case 'goal-tender': { const tn = S.tender; openBld('exchange', tn && tn.state === 'won' ? tn.from : (UI.port || S.home)); UI.exTab = tn && tn.state === 'won' && UI.port === tn.from ? 'cargo' : 'tender'; break; }
+    case 'seen': S.seen[el.dataset.b] = true; break;
+    case 'capship': UI.capShip = id; break;
+    case 'hire': if (sh) doHire(el.dataset.k, sh); break;
+    case 'fire': if (sh) doFire(sh); break;
+    case 'repair': if (sh) doRepair(sh); break;
+    case 'bid': doBid(el.dataset.b); break;
+    case 'route': if (sh) { if (el.dataset.a === 'sel') { if (!doRoute(sh, $('#rtA').value, $('#rtB').value)) toast('그 두 항구 사이로는 이 배가 다닐 수 없습니다'); } else doRoute(sh, null); } break;
     case 'tripnext': {
       if (m && m.settle && !m.next) { m.next = Date.now() - m.t0; m.clicksAtNext = m.clicks; }
       closeModal(); const n = el.dataset.n;
@@ -1307,6 +1419,7 @@ document.addEventListener('change', ev => {
   if (ev.target.id === 'portSel') { UI.port = ev.target.value; drawMap(); render(); }
   if (ev.target.id === 'optPause') { S.autoPause = ev.target.checked; save(); }
   if (ev.target.id === 'optTip') { S.tip = ev.target.checked; save(); }
+  if (ev.target.id === 'optDay') { UI.dayMode = ev.target.value; try { localStorage.setItem('shipking-day', UI.dayMode); } catch (e) {} renderTop(); }
 });
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S) drawMap(); }, 120); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && S) { save(); setPlaying(false); } });
@@ -1323,6 +1436,7 @@ function openBld(b, port, shipId) {
 }
 let p3Ready = false;
 function start(data) {
+  try { UI.dayMode = localStorage.getItem('shipking-day') || 'auto'; } catch (e) {}
   // the engine reports events; the screen decides how to show them
   Object.assign(HOOK, {
     toast, sound: k => SND.play(k), pause: () => setPlaying(false), save,
@@ -1330,7 +1444,7 @@ function start(data) {
     sailed: () => { UI.confirm = null; if (!UI.playing) setPlaying(true); },
     trip: (sh, t, msg) => {
       const m = UI.metrics; if (m && !m.settle && t.freight > 0) m.settle = Date.now() - m.t0;
-      if (S.tip || S.stats.trips <= 3) { setPlaying(false); tripModal(sh, t); }
+      if (!t.auto && (S.tip || S.stats.trips <= 3)) { setPlaying(false); tripModal(sh, t); }
       else toast(`${msg} · 순이익 ${sgn(t.net)}`);
     },
   });
