@@ -1,0 +1,11 @@
+{
+  "name": "shipking-prototype",
+  "private": true,
+  "description": "선박왕 프로토타입 — 게임 페이지(index.html)와 규칙 엔진(engine.js), 밸런스·기능·화면 테스트",
+  "scripts": {
+    "test": "node tests/functional.js && node tests/balance.js --seeds 20",
+    "test:rules": "node tests/functional.js",
+    "test:balance": "node tests/balance.js --seeds 50",
+    "test:ui": "node tests/ui.js"
+  }
+}
