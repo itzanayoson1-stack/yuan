@@ -9,7 +9,7 @@ const EXPORTS = [
   'HOOK', 'ERA', 'GOAL', 'GOODS', 'SHIPS', 'PORTS', 'AREAS', 'WX_FUEL', 'SAVE_VERSION', 'BASE_FUEL',
   'newGame', 'tick', 'addShip', 'genContract', 'routes', 'plan', 'jobNet', 'netWorth', 'myRank', 'rankList',
   'doRefuel', 'doLoad', 'doUnload', 'doSail', 'doFish', 'doLayup', 'doReactivate', 'doOrder', 'doBuyUsed', 'doSellShip',
-  'T', 'load', 'freeCap', 'canCarry', 'fuelPrice', 'oilLevel', 'creditLine', 'shipValue', 'newPrice', 'fullWage', 'wage', 'portFee',
+  'T', 'load', 'freeCap', 'canCarry', 'fuelPrice', 'oilLevel', 'creditLine', 'shipValue', 'bookValue', 'newPrice', 'fullWage', 'wage', 'portFee',
   'portOpen', 'portArea', 'dateOf', 'isValidSave',
 ];
 

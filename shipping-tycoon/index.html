@@ -31,62 +31,90 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .pos { color: var(--pos); } .neg { color: var(--neg); } .muted { color: var(--muted); }
 
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
-.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
-  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.top-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.logo { font-family: var(--f-display); font-size: 22px; letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px; }
-.flags { display: inline-grid; grid-template-columns: 8px 8px; grid-template-rows: 8px 8px; }
-.flags i:nth-child(1) { background: var(--accent); } .flags i:nth-child(2) { background: var(--brand); }
-.flags i:nth-child(3) { background: var(--brand); } .flags i:nth-child(4) { background: var(--accent); }
-.co { font-size: 12px; color: var(--muted); }
-.date { margin-left: auto; font-family: var(--f-num); font-weight: 600; }
-.ctl { display: flex; gap: 6px; }
-.ctl button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; min-width: 40px; font-weight: 600; }
-.ctl button.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
-.stats { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.9fr); gap: 8px; margin-top: 8px; }
-.stat { min-width: 0; }
-.stat small { display: block; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
-.stat b { display: block; font-family: var(--f-num); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.layout { display: grid; grid-template-columns: minmax(0, 1fr); }
-.mapbox { position: relative; height: 50vh; min-height: 260px; max-height: 520px; background: var(--sea); border-bottom: 1px solid var(--line); }
+:root { --hud: rgba(16, 27, 38, 0.8); --hud-line: rgba(255, 255, 255, 0.13); --hud-ink: #f4ecd6; --hud-muted: #b8b09f; --gold: #f2c14e; --gold-ink: #2a1d00; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: #0e1822; }
+/* stage = the scene (3D home port or chart) under a glass HUD; sheet = the working panel */
+.app { display: grid; grid-template-columns: minmax(0, 1fr); }
+.stage { position: relative; height: 62vh; min-height: 400px; max-height: 660px; background: var(--sea); overflow: hidden; }
+.sheet { padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; align-content: start; min-width: 0; }
+@media (min-width: 960px) {
+  .app { grid-template-columns: minmax(0, 1fr) 450px; height: 100vh; }
+  .stage { height: 100vh; max-height: none; }
+  .sheet { height: 100vh; overflow-y: auto; border-left: 1px solid var(--line); }
+}
+.hudwrap { position: absolute; z-index: 3; top: calc(8px + env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); display: grid; gap: 8px; pointer-events: none; }
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.hud > *, .under > * { pointer-events: auto; }
+.glass { background: var(--hud); color: var(--hud-ink); border: 1px solid var(--hud-line); border-radius: 10px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.brand { padding: 5px 12px; display: flex; align-items: baseline; gap: 8px; }
+.brand b { font-family: var(--f-display); font-size: 20px; color: var(--gold); font-weight: 400; letter-spacing: 0.02em; }
+.brand span { font-size: 12px; color: var(--hud-muted); white-space: nowrap; }
+.tabs3 { display: flex; padding: 3px; gap: 3px; }
+.tabs3 button { border: 0; background: none; color: var(--hud-ink); padding: 6px 13px; border-radius: 7px; font-weight: 700; font-size: 13.5px; position: relative; }
+.tabs3 button.on { background: var(--gold); color: var(--gold-ink); }
+.tabs3 .dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--mine); }
+.chips { display: flex; gap: 2px; padding: 3px; margin-left: auto; }
+.chip { padding: 1px 8px; display: grid; text-align: center; }
+.chip small { font-size: 10.5px; color: var(--hud-muted); }
+.chip b { font-family: var(--f-num); font-size: 13.5px; white-space: nowrap; }
+.chip b.neg { color: #ff8a80; }
+.wide-only { display: contents; }
+.under { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.goal { padding: 9px 12px; max-width: 330px; }
+.goal h4 { margin: 0 0 2px; font-size: 11.5px; color: var(--gold); letter-spacing: 0.05em; }
+.goal p { margin: 0; font-size: 13px; line-height: 1.4; }
+.goal .steps { display: flex; gap: 4px; margin: 7px 0 0; }
+.goal .steps i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
+.goal .steps i.done { background: var(--gold); }
+.goal .gbar { height: 5px; background: rgba(255, 255, 255, 0.2); border-radius: 3px; overflow: hidden; margin-top: 7px; }
+.goal .gbar i { display: block; height: 100%; background: var(--gold); }
+.goal .gbtn { margin-top: 8px; border: 0; background: var(--gold); color: var(--gold-ink); font-weight: 700; border-radius: 7px; padding: 5px 11px; font-size: 12.5px; }
+.goal2 { max-width: none; display: none; }
+@media (max-width: 599px) { .under .goal { display: none; } .goal2 { display: block; } .p3chip { display: none; } }
+.goal small { color: var(--hud-muted); font-size: 11.5px; }
+.mapctl { display: flex; gap: 3px; padding: 3px; }
+.mapctl[hidden] { display: none; }
+.mapctl button { border: 0; background: none; color: var(--hud-ink); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.mapctl button.on { background: var(--gold); color: var(--gold-ink); }
+.clock { position: absolute; z-index: 3; left: max(8px, env(safe-area-inset-left, 0px)); bottom: 8px; display: flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; }
+.clock .date { font-family: var(--f-num); font-weight: 600; font-size: 13px; margin-right: 4px; }
+.clock button { border: 0; background: rgba(255, 255, 255, 0.1); color: var(--hud-ink); border-radius: 6px; padding: 5px 9px; font-weight: 700; font-size: 12.5px; min-width: 34px; }
+.clock button.on { background: var(--gold); color: var(--gold-ink); }
+@media (max-width: 599px) { .wide-only { display: none; } .brand span { display: none; } .tabs3 button { padding: 6px 10px; } }
 .p3 { position: absolute; inset: 0; background: linear-gradient(180deg, var(--sky1), var(--sky2)); overflow: hidden; }
 .p3c { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .p3o { position: absolute; inset: 0; pointer-events: none; }
-.p3lab { position: absolute; left: 0; top: 0; pointer-events: auto; border: 0; background: var(--panel); color: var(--ink); font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); white-space: nowrap; }
-.p3lab:hover { background: var(--accent); color: #1b1400; }
-.p3lab .bang { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 3px; border-radius: 9px; background: var(--accent); color: #1b1400; font-size: 11px; font-family: var(--f-num); }
+.p3lab { position: absolute; left: 0; top: 0; pointer-events: auto; border: 1px solid var(--hud-line); background: var(--hud); color: var(--hud-ink); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); white-space: nowrap; }
+.p3lab:hover { background: var(--gold); color: var(--gold-ink); }
+.p3lab .bang { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 3px; border-radius: 9px; background: var(--gold); color: var(--gold-ink); font-size: 11px; font-family: var(--f-num); }
 .p3bub, .p3tag { position: absolute; left: 0; top: 0; background: #fffdf7; color: #22221f; border: 1.5px solid #2b2420; border-radius: 10px; padding: 4px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 .p3bub::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 8px; height: 8px; background: #fffdf7; border-right: 1.5px solid #2b2420; border-bottom: 1.5px solid #2b2420; transform: translateX(-50%) rotate(45deg); }
 .p3tag { background: var(--mine); color: #fff; border-color: transparent; }
-.p3chip { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; right: 12px; font-size: 11.5px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 0 var(--sky2); }
+.p3chip { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: 12px; max-width: 46%; text-align: right; font-size: 11.5px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 0 var(--sky2); }
 .p3chip b { color: var(--ink); font-size: 13px; }
-.p3more { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: 10px; background: var(--mine); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.p3more { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: 52px; background: var(--mine); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 #map { width: 100%; height: 100%; display: block; touch-action: manipulation; }
-.mapctl { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 10px; display: flex; gap: 4px; }
-.mapctl button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
-.mapctl button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
-.legend { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: 10px; display: flex; gap: 10px; font-size: 11px; color: var(--muted);
+.legend { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: 12px; display: flex; gap: 10px; font-size: 11px; color: var(--muted);
   background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 3px 8px; border-radius: 6px; }
 .legend[hidden] { display: none; }
 .legend span::before { content: ""; display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--river); vertical-align: middle; margin-right: 4px; }
 .legend span.c::before { border-top: 1.5px dashed var(--lane); }
 .legend span.s::before { width: 10px; height: 6px; border: 0; background: var(--mine); clip-path: polygon(0 0, 70% 0, 100% 50%, 70% 100%, 0 100%); }
-
-.side { min-width: 0; }
-.tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--panel); border-bottom: 1px solid var(--line);
-  padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-.tabs button { border: 0; background: none; padding: 11px 4px 9px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; position: relative; }
-.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
-.tabs .dot { position: absolute; top: 7px; margin-left: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--mine); }
-#panel { padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
-
-@media (min-width: 960px) {
-  .layout { grid-template-columns: minmax(0, 1.2fr) minmax(380px, 1fr); }
-  .mapbox { position: sticky; top: 108px; height: calc(100vh - 108px); max-height: none; border-bottom: 0; border-right: 1px solid var(--line); }
-  .tabs { position: sticky; top: 108px; z-index: 4; }
-}
+.seg { display: flex; gap: 4px; background: var(--chip); padding: 3px; border-radius: 9px; width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 7px; font-weight: 700; font-size: 13px; color: var(--muted); }
+.seg button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+.blds { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.bld { text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; display: grid; gap: 3px; }
+.bld:hover { border-color: var(--brand); }
+.bld b { font-size: 14.5px; } .bld small { color: var(--muted); font-size: 12px; }
+.bld.locked { opacity: 0.6; }
+.board { background: color-mix(in srgb, #e8dcbc 55%, var(--panel)); border-color: color-mix(in srgb, #b49a62 55%, var(--line)); }
+.board .con { background: color-mix(in srgb, #fffaf0 70%, var(--panel)); }
+.trip { width: 100%; border-collapse: collapse; font-size: 14px; }
+.trip td { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.trip td.r { text-align: right; font-family: var(--f-num); }
+.trip tr.sum td { border-bottom: 0; font-weight: 700; font-size: 15px; padding-top: 8px; }
+.nexts { display: grid; gap: 6px; }
 
 h2 { font-size: 18px; margin: 0; text-wrap: balance; }
 h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); letter-spacing: 0.05em; font-weight: 600; }
@@ -217,43 +245,33 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { #toast div { animation: none; } }
 </style>
 
-<header class="top">
-  <div class="top-row">
-    <div class="logo"><span class="flags" aria-hidden="true"><i></i><i></i><i></i><i></i></span>선박왕</div>
-    <div class="co" id="coName"></div>
-    <div class="date" id="date">1955.01.01</div>
-    <div class="ctl">
-      <button id="bPlay" data-act="play" aria-label="재생/일시정지">▶</button>
+<div class="app">
+  <section class="stage" id="stage">
+    <svg id="map" role="img" aria-label="항구와 항로 지도"></svg>
+    <div id="p3" class="p3" hidden></div>
+    <div class="legend" id="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
+    <div class="hudwrap">
+      <header class="hud">
+        <div class="brand glass"><b>선박왕</b><span id="coName">1955 · 한강에서 세계로</span></div>
+        <nav class="tabs3 glass" id="tabs" aria-label="화면">
+          <button data-act="tab" data-t="home">모항</button><button data-act="tab" data-t="map">항로 지도</button><button data-act="tab" data-t="fleet">선대 관리</button>
+        </nav>
+        <div class="chips glass" id="chips"></div>
+      </header>
+      <div class="under">
+        <div class="goal glass" id="goal" hidden></div>
+        <div class="mapctl glass" id="mapctl" hidden><button data-act="mapview" data-v="kr" id="vKr">국내</button><button data-act="mapview" data-v="nea" id="vNea">동북아</button></div>
+      </div>
+    </div>
+    <div class="clock glass">
+      <span class="date" id="date">1955.01.01</span>
+      <button id="bPlay" data-act="play" aria-label="시간 흐르게/멈추기">▶</button>
       <button id="bSpeed" data-act="speed" aria-label="속도">1×</button>
       <button data-act="step" aria-label="하루 진행">+1일</button>
       <button id="bSnd" data-act="snd" aria-label="소리 켜기/끄기">♪</button>
     </div>
-  </div>
-  <div class="stats">
-    <div class="stat"><small>현금</small><b id="sCash">-</b></div>
-    <div class="stat"><small>순자산</small><b id="sNet">-</b></div>
-    <div class="stat"><small>운임지수</small><b id="sIdx">-</b></div>
-    <div class="stat"><small>기름값</small><b id="sOil">-</b></div>
-  </div>
-</header>
-
-<div class="layout">
-  <div class="mapbox">
-    <svg id="map" role="img" aria-label="항구와 항로 지도"></svg>
-    <div id="p3" class="p3" hidden></div>
-    <div class="mapctl"><button data-act="view" data-v="port3d" id="vP3">항구</button><button data-act="view" data-v="kr" id="vKr">국내</button><button data-act="view" data-v="nea" id="vNea">동북아</button></div>
-    <div class="legend" id="legend"><span>강 항로</span><span class="c">바닷길</span><span class="s">내 배</span></div>
-  </div>
-  <div class="side">
-    <nav class="tabs" id="tabs">
-      <button data-act="tab" data-t="fleet">선단</button>
-      <button data-act="tab" data-t="port">항구</button>
-      <button data-act="tab" data-t="cons">계약</button>
-      <button data-act="tab" data-t="yard">조선소</button>
-      <button data-act="tab" data-t="rank">순위</button>
-    </nav>
-    <main id="panel"></main>
-  </div>
+  </section>
+  <main class="sheet" id="panel"></main>
 </div>
 <div id="toast" aria-live="polite"></div>
 <div id="modal" hidden></div>
@@ -265,7 +283,7 @@ label.chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 /* rules, data and simulation live in engine.js (shared with the test bots) */
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const UI = { tab: 'fleet', ship: null, port: null, view: 'port3d', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo' };
+const UI = { tab: 'home', bld: null, exTab: 'cargo', exShip: null, fsub: 'ships', mapView: 'kr', ship: null, port: null, view: 'port3d', confirm: null, playing: false, speed: 1, t: 0, upp: 1, startPick: 'mapo', metrics: null };
 const SPEEDS = [0.5, 1, 2, 4];
 function toast(t) {
   const box = $('#toast'), el = document.createElement('div');
@@ -282,7 +300,7 @@ function drawMap() {
   $('#legend').hidden = in3d;
   if (in3d) { P3.show(); return; }
   P3.hide();
-  if (UI.view === 'port3d') UI.view = 'kr';
+  if (UI.view === 'port3d') UI.view = UI.mapView;
   const svg = $('#map'), vb = VIEWS[UI.view];
   svg.setAttribute('viewBox', vb.join(' '));
   const r = svg.getBoundingClientRect();
@@ -697,10 +715,10 @@ const P3 = (() => {
     const wm = mesh(wat, matWater, false); wm.name = 'water'; world.add(wm);
     // clickable buildings
     const add = (vb, kind, tab, label, pos) => { const m = mesh(vb); m.userData = { kind, tab }; world.add(m); picks.push(m); labels.push({ text: label, pos: new THREE.Vector3(...pos), tab }); return m; };
-    add(market(-7.5, -3.6), 'tab', 'cons', '화물 터미널', [-7.5, 3.4, -3.6]);
-    add(office(-1.5, -3.8), 'tab', 'port', '항만 사무소', [-1.5, 3.7, -3.8]);
-    if (yard) add(shipyard(9.2, 0.4), 'tab', 'yard', '조선소', [9.2, 5.6, 2.5]);
-    else { const w2 = new VB(); warehouse(w2, 4.5, -3.6); add(w2, 'tab', 'yard', '조선소 사무소', [4.5, 2.6, -3.6]); }
+    add(market(-7.5, -3.6), 'tab', 'exchange', '거래소', [-7.5, 3.4, -3.6]);
+    add(office(-1.5, -3.8), 'tab', 'teahouse', '닻 다방', [-1.5, 3.7, -3.8]);
+    if (yard) add(shipyard(9.2, 0.4), 'tab', 'yard', '조선·정비소', [9.2, 5.6, 2.5]);
+    else { const w2 = new VB(); warehouse(w2, 4.5, -3.6); add(w2, 'tab', 'yard', '조선·정비소', [4.5, 2.6, -3.6]); }
     // villagers walking the quay road
     const doors = [[-7.5, -1.2], [-1.5, -1.6], [4.5, -1.4]], road = 0.5;
     for (let k = 0; k < 6; k++) {
@@ -767,7 +785,7 @@ const P3 = (() => {
   }
   function renderLabels(pid) {
     const nCon = S ? S.contracts.filter(c => c.from === pid).length : 0;
-    let h = labels.map((l, i) => `<button class="p3lab" data-act="p3tab" data-t="${l.tab}" data-i="${i}">${l.text}${l.tab === 'cons' && nCon ? ` <span class="bang">${nCon}</span>` : ''}</button>`).join('');
+    let h = labels.map((l, i) => `<button class="p3lab" data-act="p3tab" data-t="${l.tab}" data-i="${i}">${l.text}${l.tab === 'exchange' && nCon ? ` <span class="bang">${nCon}</span>` : ''}</button>`).join('');
     h += `<div class="p3tag" id="p3tag" hidden></div>`;
     h += npcs.map((n, i) => `<div class="p3bub" data-n="${i}" hidden></div>`).join('');
     overlay.innerHTML = h;
@@ -849,30 +867,60 @@ const P3 = (() => {
 })();
 
 /* ================= PANELS ================= */
+const chip = (label, val, cls = '') => `<div class="chip"><small>${label}</small><b class="${cls}">${val}</b></div>`;
 function renderTop() {
   $('#coName').textContent = `${S.name} · ${ERA[S.era].name}`;
   $('#date').textContent = dateStr(S.day);
-  const c = $('#sCash'); c.textContent = wonK(S.cash); c.className = S.cash < 0 ? 'neg' : '';
-  $('#sNet').textContent = wonK(netWorth());
-  $('#sIdx').innerHTML = `${S.idx.toFixed(2)} <span class="${S.idx >= 1 ? 'pos' : 'neg'}" style="font-size:11px">${S.idx >= 1.15 ? '호황' : S.idx <= 0.85 ? '불황' : '보통'}</span>`;
   const o = oilLevel();
-  $('#sOil').innerHTML = `${won(BASE_FUEL * o)}<span style="font-size:11px" class="${o > 1.1 ? 'neg' : o < 0.9 ? 'pos' : 'muted'}">/t ${o > 1.3 ? '급등' : o > 1.1 ? '높음' : o < 0.9 ? '낮음' : ''}</span>`;
+  $('#chips').innerHTML = chip('자금', wonK(S.cash), S.cash < 0 ? 'neg' : '') + chip('선대', `${S.ships.length}척`) + chip('순자산', wonK(netWorth()))
+    + `<span class="wide-only">${chip('운임지수', `${S.idx.toFixed(2)} ${S.idx >= 1.15 ? '호황' : S.idx <= 0.85 ? '불황' : ''}`)}${chip('기름값', won(BASE_FUEL * o) + '/t')}</span>`;
   $('#bPlay').textContent = UI.playing ? '❚❚' : '▶';
   $('#bPlay').classList.toggle('on', UI.playing);
   $('#bSpeed').textContent = UI.speed + '×';
-  $('#vP3').classList.toggle('on', UI.view === 'port3d');
-  $('#vP3').hidden = !P3.ok;
   $('#bSnd').classList.toggle('on', SND.on);
-  $('#vKr').classList.toggle('on', UI.view === 'kr');
-  $('#vNea').classList.toggle('on', UI.view === 'nea');
+  const inMap = UI.view !== 'port3d';
+  $('#mapctl').hidden = !inMap;
+  $('#vKr').classList.toggle('on', UI.mapView === 'kr');
+  $('#vNea').classList.toggle('on', UI.mapView === 'nea');
   for (const b of document.querySelectorAll('#tabs button')) {
     b.classList.toggle('on', b.dataset.t === UI.tab);
     const dot = b.querySelector('.dot');
-    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role === 'cargo');
+    const idle = b.dataset.t === 'fleet' && S.ships.some(s => s.loc && s.mode === 'idle' && T(s).role === 'cargo' && !s.cons.length);
     if (idle && !dot) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>');
     if (!idle && dot) dot.remove();
   }
+  renderGoal();
 }
+
+/* ---- today's goal: the first voyage, then the next growth step ---- */
+function goalInfo() {
+  const st = S.stats, loaded = S.ships.some(s => s.cons.length);
+  const steps = [st.voyages > 0 || loaded, st.voyages > 0, st.delivered > 0, st.delivered >= 2 || S.ships.length >= 2 || st.voyages >= 2];
+  const i = steps.findIndex(x => !x), home = PORTS[S.home].name;
+  if (i === 0) return { steps, text: `${home} 거래소의 화물 벽보에서 첫 의뢰를 싣기`, btn: ['거래소 열기', 'goal-ex'] };
+  if (i === 1) return { steps, text: '연료와 날씨를 확인하고 목적지로 출항하기', btn: ['출항 준비', 'goal-ex'] };
+  if (i === 2) {
+    const sh = S.ships.find(s => s.voy);
+    return { steps, text: sh ? `${esc(sh.name)}이(가) ${PORTS[sh.voy.to].name}(으)로 가는 중. 도착하면 정산합니다` : '도착해서 운임 받기', btn: UI.playing ? null : ['▶ 시간 흐르게', 'play'] };
+  }
+  if (i === 3) return { steps, text: '다음 선택: 도착한 항구에서 다음 의뢰를 싣거나, 돈을 모아 두 번째 배를 마련하기', btn: ['거래소 열기', 'goal-ex'] };
+  if (S.ships.length < 2) {
+    const price = Math.min(...Object.values(SHIPS).filter(t => t.role === 'cargo' && t.era <= S.era).map(newPrice));
+    return { text: `두 번째 배 마련하기 · ${won(S.cash)} / ${won(price)}`, prog: S.cash / price, btn: ['조선·정비소', 'goal-yard'] };
+  }
+  if (S.era < 3) { const need = ERA[S.era + 1].need; return { text: `${ERA[S.era + 1].name} 열기 · 순자산 ${wonK(netWorth())} / ${wonK(need)}`, prog: netWorth() / need }; }
+  return { text: `선박왕 되기 · 순자산 ${wonK(netWorth())} / ${wonK(GOAL)} · 지금 ${myRank()}위`, prog: netWorth() / GOAL };
+}
+let goalHtml = '';
+function renderGoal() {
+  const g = goalInfo(), el = $('#goal');
+  el.hidden = false;
+  el.innerHTML = goalHtml = `<h4>${g.steps ? '오늘의 목표 · 첫 항차' : '다음 목표'}</h4><p>${g.text}</p>`
+    + (g.steps ? `<div class="steps">${g.steps.map(d => `<i class="${d ? 'done' : ''}"></i>`).join('')}</div>` : '')
+    + (g.prog !== undefined ? `<div class="gbar"><i style="width:${clamp(g.prog * 100, 0, 100)}%"></i></div>` : '')
+    + (g.btn ? `<button class="gbtn" data-act="${g.btn[1]}">${g.btn[0]}</button>` : '');
+}
+
 const wxTag = w => `<span class="wx w${w}">${WXN[w]}</span>`;
 function statusText(sh) {
   if (sh.voy) { const v = sh.voy, left = Math.max(1, Math.ceil((v.dist - v.done) / Math.max(1, v.next))); return `항해 중 · ${PORTS[v.from].name} → ${PORTS[v.to].name} · 약 ${left}일`; }
@@ -893,98 +941,130 @@ function bars(sh) {
   if (t.tank) h += `<div class="bar fuel" title="연료"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div>`;
   return h;
 }
-function fleetList() {
-  let h = '';
-  if (S.tip && S.day < 60) h += `<div class="hint"><b>운송 가이드</b><ol><li>배를 누르면 이 항구에서 실을 수 있는 <b>운송 의뢰</b>가 <b>하루당 순이익</b> 순으로 나옵니다. 위에서부터 실으세요.</li><li>같은 목적지 의뢰를 여러 건 실으면 한 번 항해로 운임을 모두 받습니다.</li><li>연료(주황 막대)가 줄면 보충하고, 예보에 강풍이 있으면 연료가 더 듭니다. 불황에는 배를 <b>계선</b>해 비용을 줄이세요.</li></ol></div>`;
-  h += forecastCard();
-  h += `<div class="list">`;
-  for (const sh of S.ships) {
-    const t = T(sh);
-    h += `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년 · 손익 <span class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</span></small></div><div class="st">${statusText(sh)}</div><div class="bars">${bars(sh)}</div></button>`;
-  }
-  h += `</div>`;
-  if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
-  return h;
-}
+const shipCard = sh => { const t = T(sh); return `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${t.role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${t.name} · ${t.cap ? t.cap + 't · ' : ''}${Math.floor(sh.age / 365)}년 · 손익 <span class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</span></small></div><div class="st">${statusText(sh)}</div><div class="bars">${bars(sh)}</div></button>`; };
+const backBar = (title, to = 'home') => `<div class="dhead"><button class="back" data-act="bld" data-b="">← ${to === 'home' ? '모항' : to}</button><h2>${title}</h2></div>`;
+const canWork = sh => !!sh.loc && !sh.voy && (sh.mode === 'idle' || sh.mode === 'tour' || sh.mode === 'bunker');
+
+/* ---- ship pieces, shared by the exchange and the fleet screen ---- */
 function jobRow(c, sh, est) {
   const fits = freeCap(sh) >= c.q;
   return `<div class="con"><div class="l1"><span class="route">→ ${PORTS[c.to].name} <small>${GOODS[c.good].name} ${c.q}t</small></span><span class="pay">운임 ${won(c.pay)}</span></div>
   <div class="costs"><span>${est.days}일 · ${nf(c.km)}km</span><span>연료 ${won(est.fuelCost)}</span><span>고정비·입항료 ${won(est.cost - est.fuelCost)}</span>${est.worst >= 2 ? `<span>${wxTag(est.worst)} 구간</span>` : ''}</div>
   <div class="l1"><span class="net ${est.net >= 0 ? 'pos' : 'neg'}">순이익 ${sgn(est.net)} <small>(하루 ${sgn(est.perDay)})</small></span><span class="acts"><small class="muted">기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small><button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}" ${fits ? '' : 'disabled'}>${fits ? '싣기' : '공간 부족'}</button></span></div></div>`;
 }
+function fuelCard(sh) {
+  const t = T(sh); if (!t.tank) return '';
+  const pid = sh.loc, fp = fuelPrice(pid), need = t.tank - sh.fuel;
+  const cheap = Object.keys(PORTS).filter(portOpen).reduce((a, p) => fuelPrice(p) < fuelPrice(a) ? p : a, pid);
+  return `<div class="card"><h3>연료 ${sh.fuel.toFixed(2)} / ${t.tank}t · ${PORTS[pid].name} 기름값 ${won(fp)}/t</h3><div class="bar fuel" style="height:8px;margin-bottom:8px"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div><div class="row2"><button class="btn pri" data-act="fuel" data-id="${sh.id}" data-f="1" ${need > 0.001 ? '' : 'disabled'}>가득 채우기 ${won(need * fp)}</button><button class="btn" data-act="fuel" data-id="${sh.id}" data-f="0.5" ${sh.fuel < t.tank * 0.5 ? '' : 'disabled'}>절반까지 ${won(Math.max(0, t.tank * 0.5 - sh.fuel) * fp)}</button>${S.cash < need * fp ? `<small class="neg">현금 부족분은 외상(한도 ${won(creditLine())}, 하루 이자 0.1%)</small>` : ''}${cheap !== pid ? `<small class="muted">가장 싼 곳: ${PORTS[cheap].name} ${won(fuelPrice(cheap))}/t</small>` : '<small class="pos">여기가 가장 쌉니다</small>'}</div></div>`;
+}
+function loadedCard(sh) {
+  if (!sh.cons.length) return '';
+  return `<div class="card"><h3>실은 화물 ${load(sh)}t · 운임 합계 ${won(sh.cons.reduce((a, c) => a + c.pay, 0))}</h3><div class="list">${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${won(c.pay)} · 기한 ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">' + (S.day - c.deadline) + '일 지연</span>'}</span>${sh.voy ? '' : `<button class="btn" data-act="unload" data-c="${c.id}" data-id="${sh.id}">내리기</button>`}</div>`).join('')}</div></div>`;
+}
+function jobsCard(sh) {
+  const pid = sh.loc, P = PORTS[pid];
+  const jobs = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good)).map(c => ({ c, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.perDay - a.e.perDay);
+  return `<div class="card board"><h3>${P.name} 화물 벽보 ${jobs.length}건 · ${esc(sh.name)} 남은 공간 ${freeCap(sh)}t · 하루 순이익 순</h3>${jobs.length ? `<div class="list">${jobs.map(x => jobRow(x.c, sh, x.e)).join('')}</div>` : '<p class="muted" style="margin:0">지금 이 배가 실을 수 있는 의뢰가 없습니다. 하루 이틀 기다리거나, 의뢰가 많은 항구로 빈 배로 옮기세요(공선 항해).</p>'}</div>`;
+}
+function departCard(sh, compact) {
+  const t = T(sh), pid = sh.loc, R = routes(pid, t);
+  const dests = Object.keys(R.dist).filter(p => PORTS[p] && p !== pid).map(p => { const pl = plan(sh, p); const rev = sh.cons.filter(c => c.to === p).reduce((a, c) => a + c.pay, 0); return { p, pl, rev, net: rev - pl.cost }; })
+    .sort((a, b) => (b.rev > 0) - (a.rev > 0) || b.net - a.net || a.pl.days - b.pl.days);
+  const btn = x => { const short = t.burn && sh.fuel + 1e-6 < x.pl.fuel; return `<button class="dest${x.rev ? ' has' : ''}" data-act="sail" data-id="${sh.id}" data-to="${x.p}"><b>${PORTS[x.p].name}</b><em class="${x.net >= 0 ? 'pos' : 'neg'}">${sgn(x.net)}</em><small>${x.pl.days}일 · ${x.rev ? '운임 ' + won(x.rev) : '빈 배'}${x.pl.worst >= 2 ? ' · ' + WXN[x.pl.worst] : ''}</small><small style="text-align:right">${short ? '<span class="neg">연료 부족</span>' : t.burn ? x.pl.fuel.toFixed(2) + 't' : ''}</small></button>`; };
+  const main = dests.filter(x => x.rev), rest = dests.filter(x => !x.rev);
+  const area = portArea(pid);
+  const head = `<h3>출항 · 금액은 운임에서 연료비·고정비·입항료를 뺀 예상 순이익 · ${AREAS[area]} 예보 ${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</h3>`;
+  if (compact && main.length) return `<div class="card">${head}<div class="dests">${main.map(btn).join('')}</div><details style="margin-top:8px"><summary class="muted" style="font-size:12.5px">다른 항구로 (빈 배 이동 포함) ${rest.length}곳</summary><div class="dests" style="margin-top:6px">${rest.map(btn).join('')}</div></details></div>`;
+  if (compact) return `<details class="card"><summary class="muted" style="font-size:12.5px">빈 배로 다른 항구 가기 ${rest.length}곳</summary><div class="dests" style="margin-top:8px">${rest.map(btn).join('')}</div></details>`;
+  return `<div class="card">${head}<div class="dests">${dests.map(btn).join('')}</div></div>`;
+}
+function sellBlock(sh) {
+  if (sh.cons.length) return '<p class="muted" style="margin:0">실은 화물을 모두 내려야 매각할 수 있습니다.</p>';
+  return UI.confirm === 'sell' + sh.id
+    ? `<div class="row2"><span>${esc(sh.name)}을(를) ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>`
+    : `<button class="btn" data-act="askSell" data-id="${sh.id}">${esc(sh.name)} 매각 · ${won(shipValue(sh))}</button>`;
+}
 function shipDetail(sh) {
   const t = T(sh), docked = !!sh.loc && !sh.voy;
-  let h = `<div class="dhead"><button class="back" data-act="back">← 선단</button><h2>${esc(sh.name)}</h2><span class="tag">${t.name}</span></div>`;
-  h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>연료</small><b>${t.tank ? `${sh.fuel.toFixed(2)} / ${t.tank}t` : '돛(무연료)'}</b></div><div><small>연료 소모</small><b>${t.burn ? t.burn + 't/일' : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>고정비</small><b>${won(wage(sh))}/일</b></div><div><small>입항료</small><b>${won(portFee(t))}</b></div><div><small>매각가</small><b>${won(shipValue(sh))}</b></div><div><small>누적 손익</small><b class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</b></div></div>`;
+  let h = `<div class="dhead"><button class="back" data-act="back">← 선대</button><h2>${esc(sh.name)}</h2><span class="tag">${t.name}</span></div>`;
+  h += `<div class="card kv"><div><small>적재</small><b>${t.cap ? `${load(sh)} / ${t.cap}t` : '-'}</b></div><div><small>연료</small><b>${t.tank ? `${sh.fuel.toFixed(2)} / ${t.tank}t` : '돛(무연료)'}</b></div><div><small>연료 소모</small><b>${t.burn ? t.burn + 't/일' : '-'}</b></div><div><small>속도</small><b>${t.speed}km/일</b></div><div><small>고정비</small><b>${won(wage(sh))}/일</b></div><div><small>입항료</small><b>${won(portFee(t))}</b></div><div><small>매각가(시세)</small><b>${won(shipValue(sh))}</b></div><div><small>장부가</small><b>${won(bookValue(sh))}</b></div><div><small>누적 손익</small><b class="${sh.earn - sh.spend >= 0 ? 'pos' : 'neg'}">${sgn(sh.earn - sh.spend)}</b></div></div>`;
   h += `<div class="status">${statusText(sh)}${sh.voy ? ` · 남은 연료 ${sh.fuel.toFixed(2)}t · 현재 해역 ${AREAS[areaAt(sh.voy.segs, sh.voy.done)]} ${wxTag(wxNow(areaAt(sh.voy.segs, sh.voy.done)))}` : ''}</div>`;
-  if (sh.voy && sh.cons.length) h += `<div class="card"><h3>실은 화물</h3><div class="list">${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">운임 ${won(c.pay)} · 기한 ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">' + (S.day - c.deadline) + '일 지연</span>'}</span></div>`).join('')}</div></div>`;
-  if (!docked) return h;
-  const pid = sh.loc, P = PORTS[pid], busy = sh.mode === 'fishing' || sh.mode === 'react';
-  const area = portArea(pid);
-  h += `<div class="row2" style="font-size:13px"><span class="muted">${AREAS[area]} 예보</span>${[0, 1, 2].map(k => `${['오늘', '내일', '모레'][k]} ${wxTag(S.wx[area][k])}`).join(' ')}</div>`;
+  if (sh.lastTrip) { const L = sh.lastTrip; h += `<div class="status">지난 항차 ${PORTS[L.from].name} → ${PORTS[L.to].name} · ${L.days}일 · 운임 ${won(L.freight)} · 순이익 <b class="${L.net >= 0 ? 'pos' : 'neg'}">${sgn(L.net)}</b></div>`; }
+  if (!docked) return h + loadedCard(sh);
+  const P = PORTS[sh.loc], busy = sh.mode === 'fishing' || sh.mode === 'react';
   if (sh.mode === 'layup' || sh.mode === 'react') {
-    h += `<div class="card"><h3>계선 중</h3><p style="margin:0 0 8px">고정비가 ${won(fullWage(sh))} → ${won(wage(sh))}/일로 줄었습니다. 다시 운항하려면 재가동 비용과 2일이 듭니다.</p>${sh.mode === 'layup' ? `<button class="btn pri wide" data-act="react" data-id="${sh.id}" ${S.cash >= fullWage(sh) * 5 ? '' : 'disabled'}>재가동 · ${won(fullWage(sh) * 5)} · 2일</button>` : '<p class="muted" style="margin:0">재가동 중입니다.</p>'}</div>`;
-    return h;
+    return h + `<div class="card"><h3>계선 중</h3><p style="margin:0 0 8px">고정비가 ${won(fullWage(sh))} → ${won(wage(sh))}/일로 줄었습니다. 다시 운항하려면 재가동 비용과 2일이 듭니다.</p>${sh.mode === 'layup' ? `<button class="btn pri wide" data-act="react" data-id="${sh.id}" ${S.cash >= fullWage(sh) * 5 ? '' : 'disabled'}>재가동 · ${won(fullWage(sh) * 5)} · 2일</button>` : '<p class="muted" style="margin:0">재가동 중입니다.</p>'}</div><div class="card"><h3>매각</h3>${sellBlock(sh)}</div>`;
   }
-  if (t.tank && !busy) {
-    const fp = fuelPrice(pid), need = t.tank - sh.fuel;
-    const cheap = Object.keys(PORTS).filter(portOpen).reduce((a, p) => fuelPrice(p) < fuelPrice(a) ? p : a, pid);
-    h += `<div class="card"><h3>연료 · ${P.name} 기름값 ${won(fp)}/t</h3><div class="bar fuel" style="height:8px;margin-bottom:8px"><i style="width:${Math.round(sh.fuel / t.tank * 100)}%"></i></div><div class="row2"><button class="btn pri" data-act="fuel" data-id="${sh.id}" data-f="1" ${need > 0.001 ? '' : 'disabled'}>가득 채우기 ${won(need * fp)}</button><button class="btn" data-act="fuel" data-id="${sh.id}" data-f="0.5" ${sh.fuel < t.tank * 0.5 ? '' : 'disabled'}>절반까지 ${won(Math.max(0, t.tank * 0.5 - sh.fuel) * fp)}</button>${S.cash < need * fp ? `<small class="neg">현금 부족분은 외상(한도 ${won(creditLine())}, 하루 이자 0.1%)</small>` : ''}${cheap !== pid ? `<small class="muted">가장 싼 곳: ${PORTS[cheap].name} ${won(fuelPrice(cheap))}/t</small>` : '<small class="pos">여기가 가장 쌉니다</small>'}</div></div>`;
-  }
-  if (t.role === 'cargo') {
-    if (sh.cons.length) h += `<div class="card"><h3>실은 화물 ${load(sh)}t · 운임 합계 ${won(sh.cons.reduce((a, c) => a + c.pay, 0))}</h3><div class="list">${sh.cons.map(c => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${won(c.pay)} · 기한 ${c.deadline - S.day}일</span><button class="btn" data-act="unload" data-c="${c.id}" data-id="${sh.id}">내리기</button></div>`).join('')}</div></div>`;
-    const jobs = S.contracts.filter(c => c.from === pid && canCarry(sh, c.good)).map(c => ({ c, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.perDay - a.e.perDay);
-    h += `<div class="card"><h3>${P.name} 운송 의뢰 ${jobs.length}건 · 남은 공간 ${freeCap(sh)}t · 하루 순이익 순</h3>${jobs.length ? `<div class="list">${jobs.map(x => jobRow(x.c, sh, x.e)).join('')}</div>` : '<p class="muted" style="margin:0">지금 이 배가 실을 수 있는 의뢰가 없습니다. 기다리거나, 의뢰가 많은 항구로 빈 배로 이동하세요(공선 항해).</p>'}</div>`;
-  }
+  if (!busy) h += fuelCard(sh);
+  if (t.role === 'cargo') h += loadedCard(sh) + `<button class="btn wide" data-act="bld" data-b="exchange" data-p="${sh.loc}" data-id="${sh.id}">${P.name} 거래소에서 의뢰 고르기 →</button>`;
   if (t.role === 'fish') h += `<div class="card"><h3>조업</h3>${P.fish ? `<button class="btn pri wide" data-act="fish" data-id="${sh.id}">${P.name} 앞바다로 조업 · 3일 · 연료 약 ${(t.burn * 3).toFixed(2)}t · 생선 4~8t 위판</button>` : `<p class="muted" style="margin:0">${P.name}에는 어장이 없습니다. 어장 항구: 인천, 군산, 목포, 제주, 여수, 통영, 부산${S.era >= 2 ? ', 울산, 포항, 동해' : ''}</p>`}</div>`;
   if (t.role === 'tour') { const inc = (P.tour || 0) * 60 * (0.7 + 0.3 * S.idx); h += `<div class="card"><h3>관광 운영</h3>${P.tour ? (sh.mode === 'tour' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">운영 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="tour">낚시 관광 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">관광객이 없는 항구입니다. 제주·부산(★3), 여수·통영(★2)이 좋습니다.</p>`}</div>`; }
   if (t.role === 'bunker') { const inc = (P.traffic || 0) * 260 * S.idx * oilLevel(); h += `<div class="card"><h3>급유 영업</h3>${P.traffic ? (sh.mode === 'bunker' ? `<button class="btn wide" data-act="mode" data-id="${sh.id}" data-m="idle">영업 중지</button>` : `<button class="btn pri wide" data-act="mode" data-id="${sh.id}" data-m="bunker">급유 영업 시작 · 하루 약 ${won(inc)}</button>`) : `<p class="muted" style="margin:0">선박 왕래가 적은 항구입니다. 부산·인천이 가장 바쁩니다.</p>`}</div>`; }
   if (!busy) {
-    const R = routes(pid, t);
-    const dests = Object.keys(R.dist).filter(p => PORTS[p] && p !== pid).map(p => { const pl = plan(sh, p); const rev = sh.cons.filter(c => c.to === p).reduce((a, c) => a + c.pay, 0); return { p, pl, rev, net: rev - pl.cost }; })
-      .sort((a, b) => (b.rev > 0) - (a.rev > 0) || b.net - a.net || a.pl.days - b.pl.days);
-    h += `<div class="card"><h3>출항 · 예상 비용은 연료·고정비·입항료 합계</h3><div class="dests">${dests.map(x => { const short = t.burn && sh.fuel + 1e-6 < x.pl.fuel; return `<button class="dest${x.rev ? ' has' : ''}" data-act="sail" data-id="${sh.id}" data-to="${x.p}"><b>${PORTS[x.p].name}</b><em class="${x.net >= 0 ? 'pos' : 'neg'}">${sgn(x.net)}</em><small>${x.pl.days}일 · ${x.rev ? '운임 ' + won(x.rev) : '빈 배'}${x.pl.worst >= 2 ? ' · ' + WXN[x.pl.worst] : ''}</small><small style="text-align:right">${short ? '<span class="neg">연료 부족</span>' : t.burn ? x.pl.fuel.toFixed(2) + 't' : ''}</small></button>`; }).join('')}</div></div>`;
+    h += departCard(sh, false);
     h += `<div class="card"><h3>계선(휴업)</h3><p class="muted" style="margin:0 0 8px">불황이거나 기름값이 비쌀 때 배를 묶어 두면 고정비가 5분의 1로 줄어듭니다. 다시 움직이려면 고정비 5일치와 2일이 듭니다.</p><button class="btn" data-act="layup" data-id="${sh.id}" ${sh.cons.length ? 'disabled' : ''}>계선하기 · 하루 ${won(fullWage(sh))} → ${won(fullWage(sh) * 0.2)}</button></div>`;
-    const canSell = !sh.cons.length;
-    h += `<div class="card"><h3>매각</h3>${canSell ? (UI.confirm === 'sell' + sh.id ? `<div class="row2"><span>정말 ${won(shipValue(sh))}에 매각할까요?</span><button class="btn warn" data-act="sellship" data-id="${sh.id}">매각 확정</button><button class="btn" data-act="cancel">취소</button></div>` : `<button class="btn" data-act="askSell" data-id="${sh.id}">${won(shipValue(sh))}에 매각</button>`) : '<p class="muted" style="margin:0">실은 화물을 모두 내려야 매각할 수 있습니다.</p>'}</div>`;
+    h += `<div class="card"><h3>매각</h3>${sellBlock(sh)}</div>`;
   }
   return h;
 }
-function conRow(c) {
-  return `<div class="con"><div class="l1"><span class="route">${PORTS[c.from].name} → ${PORTS[c.to].name}</span><span class="pay">${won(c.pay)}</span></div><div class="l1"><small>${GOODS[c.good].name} ${c.q}t · ${nf(c.km)}km · 기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small></div></div>`;
-}
-function portPanel() {
-  const pid = UI.port || S.home, P = PORTS[pid];
-  let h = `<div class="row2"><select id="portSel" aria-label="항구 선택">${Object.keys(PORTS).map(p => `<option value="${p}" ${p === pid ? 'selected' : ''} ${portOpen(p) ? '' : 'disabled'}>${PORTS[p].name}${portOpen(p) ? '' : ` (${PORTS[p].era}시대)`}</option>`).join('')}</select></div>`;
-  h += `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2></div>`;
-  h += `<div class="row2"><span class="tag">항구 규모 ${'■'.repeat(P.size)}</span>${P.fish ? '<span class="tag">어장</span>' : ''}${P.tour ? `<span class="tag">관광 ${'★'.repeat(P.tour)}</span>` : ''}${P.traffic ? `<span class="tag">교통량 ${'▲'.repeat(P.traffic)}</span>` : ''}</div>`;
-  if (!portOpen(pid)) return h + `<div class="card"><p class="muted" style="margin:0">${P.era}시대(${ERA[P.era].name})에 열립니다. 필요 순자산 ${won(ERA[P.era].need)}.</p></div>`;
-  const area = portArea(pid);
-  h += `<div class="card kv"><div><small>기름값</small><b>${won(fuelPrice(pid))}/t</b></div><div><small>해역</small><b style="font-family:var(--f-body)">${AREAS[area]}</b></div><div><small>날씨 오늘·내일·모레</small><b style="font-family:var(--f-body)">${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</b></div><div><small>출발 화물</small><b>${S.contracts.filter(c => c.from === pid).length}건</b></div></div>`;
+
+/* ---- 모항 ---- */
+const BLD = {
+  exchange: { name: '거래소', role: '화물 벽보 · 중고선 매매' },
+  yard: { name: '조선·정비소', role: '신조 발주 · 수리·개조는 준비 중' },
+  teahouse: { name: '닻 다방', role: '시황 소문 · 선박 검사 · 보험', locked: '아직 문을 열지 않았습니다. 문을 열면 선장·상인에게 시황 소문을 듣고, 배의 검사 등급(갑·을·병)을 받아 더 좋은 계약에 나서고, 태풍 피해에 대비해 선체 보험에 들 수 있습니다.' },
+};
+function homePanel() {
+  if (UI.bld === 'exchange') return exchangePanel();
+  if (UI.bld === 'yard') return backBar('조선·정비소') + yardPanel();
+  if (UI.bld === 'teahouse') return backBar('닻 다방') + `<div class="card"><h3>준비 중</h3><p style="margin:0">${BLD.teahouse.locked}</p></div>`;
+  const pid = UI.port || S.home, P = PORTS[pid], area = portArea(pid);
+  let h = `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2>${pid === S.home ? '<span class="tag a">모항</span>' : `<button class="back" data-act="gohome">모항으로</button>`}</div>`;
+  h += `<div class="card kv"><div><small>기름값</small><b>${won(fuelPrice(pid))}/t</b></div><div><small>${AREAS[area]} 오늘·내일·모레</small><b style="font-family:var(--f-body)">${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</b></div><div><small>출발 화물</small><b>${S.contracts.filter(c => c.from === pid).length}건</b></div></div>`;
   if (S.events.some(e => e.port === pid)) h += `<div class="hint">물동량 급증 중 — 이 항구에서 나가는 화물의 운임이 40% 높습니다.</div>`;
+  h += `<div class="blds">${Object.entries(BLD).map(([k, b]) => `<button class="bld${b.locked ? ' locked' : ''}" data-act="bld" data-b="${k}"><b>${b.name}${b.locked ? ' · 준비 중' : ''}</b><small>${b.role}</small>${k === 'exchange' ? `<small>화물 ${S.contracts.filter(c => c.from === pid).length}건 · 중고선 ${S.used.length}척</small>` : ''}</button>`).join('')}</div>`;
   const mine = S.ships.filter(s => s.loc === pid);
-  h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3>${mine.length ? `<div class="list">${mine.map(sh => `<button class="shipcard" data-act="ship" data-id="${sh.id}"><span class="glyph ${T(sh).role}"></span><div><span class="nm">${esc(sh.name)}</span><small>${T(sh).name}</small></div><div class="st">${statusText(sh)}</div></button>`).join('')}</div>` : '<p class="muted" style="margin:0">없음</p>'}</div>`;
-  const cons = S.contracts.filter(c => c.from === pid).sort((a, b) => b.pay - a.pay);
-  if (cons.length) h += `<div class="card"><h3>${P.name}에서 나가는 화물</h3><div class="list">${cons.map(conRow).join('')}</div></div>`;
+  h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3>${mine.length ? `<div class="list">${mine.map(shipCard).join('')}</div>` : `<p class="muted" style="margin:0">이 항구에 정박한 배가 없습니다.</p>${otherPorts()}`}</div>`;
   return h;
 }
-function consPanel() {
-  let h = `<p class="muted" style="margin:0">모든 항구의 운송 의뢰입니다. 출발 항구에 내 배가 있으면 그 배 기준 순이익이 나옵니다. 기한을 넘기면 운임이 절반이고, 좋은 의뢰는 라이벌도 노립니다.</p>`;
-  const act = S.ships.flatMap(sh => sh.cons.map(c => ({ c, sh })));
-  if (act.length) h += `<div class="card"><h3>운송 중 ${act.length}건 · 운임 합계 ${won(act.reduce((a, x) => a + x.c.pay, 0))}</h3><div class="list">${act.map(({ c, sh }) => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${esc(sh.name)} · ${won(c.pay)} · ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">지연</span>'}</span></div>`).join('')}</div></div>`;
-  const list = [...S.contracts].sort((a, b) => b.pay - a.pay);
-  h += `<div class="card"><h3>운송 의뢰 ${list.length}건</h3><div class="list">`;
-  for (const c of list) {
-    const ships = S.ships.filter(sh => sh.loc === c.from && !sh.voy && sh.mode === 'idle' && T(sh).role === 'cargo' && canCarry(sh, c.good) && freeCap(sh) >= c.q);
-    const opts = ships.map(sh => ({ sh, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.net - a.e.net).slice(0, 2);
-    const btns = opts.length ? opts.map(({ sh, e }) => `<button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}">${esc(sh.name)}에 싣기 · 순이익 ${sgn(e.net)}</button>`).join('') : `<small class="muted">${PORTS[c.from].name}에 실을 수 있는 빈 배가 없음 · ${SHIPS[c.size] ? SHIPS[c.size].name + '급 화물' : ''}</small>`;
-    h += conRow(c).replace(/<\/div><\/div>$/, `</div><div class="acts" style="justify-content:flex-start">${btns}</div></div>`);
+function otherPorts() {
+  const ps = [...new Set(S.ships.filter(s => s.loc).map(s => s.loc))].filter(p => p !== UI.port);
+  return ps.length ? `<div class="row2" style="margin-top:8px">${ps.map(p => `<button class="btn" data-act="goport" data-p="${p}">${PORTS[p].name}로 가 보기</button>`).join('')}</div>` : '';
+}
+function exchangePanel() {
+  const pid = UI.port || S.home, P = PORTS[pid];
+  let h = backBar(`${P.name} 거래소`);
+  h += `<div class="seg"><button data-act="extab" data-x="cargo" class="${UI.exTab !== 'sp' ? 'on' : ''}">화물 벽보</button><button data-act="extab" data-x="sp" class="${UI.exTab === 'sp' ? 'on' : ''}">중고선 매매</button></div>`;
+  if (UI.exTab === 'sp') return h + spPanel(pid);
+  const ships = S.ships.filter(s => s.loc === pid && canWork(s) && T(s).role === 'cargo');
+  if (!ships.length) {
+    const cons = S.contracts.filter(c => c.from === pid).sort((a, b) => b.pay - a.pay);
+    return h + `<div class="hint">이 항구에 화물을 실을 수 있는 내 배가 없습니다. 벽보만 볼 수 있습니다.${otherPorts()}</div><div class="card board"><h3>${P.name} 화물 벽보 ${cons.length}건</h3><div class="list">${cons.map(conRow).join('') || '<p class="muted" style="margin:0">없음</p>'}</div></div>`;
   }
+  const sh = ships.find(s => s.id === UI.exShip) || ships[0]; UI.exShip = sh.id;
+  if (ships.length > 1) h += `<div class="seg">${ships.map(s => `<button data-act="exship" data-id="${s.id}" class="${s.id === sh.id ? 'on' : ''}">${esc(s.name)}</button>`).join('')}</div>`;
+  h += `<div class="status">${esc(sh.name)} · ${T(sh).name} · 적재 ${load(sh)}/${T(sh).cap}t${T(sh).tank ? ` · 연료 ${sh.fuel.toFixed(2)}/${T(sh).tank}t` : ' · 돛배'}</div>`;
+  h += jobsCard(sh);
+  if (sh.cons.length) h += loadedCard(sh) + fuelCard(sh) + departCard(sh, true);
+  else h += departCard(sh, true);
+  return h;
+}
+function spPanel(pid) {
+  let h = `<p class="muted" style="margin:0">중고선(S&amp;P)은 바로 쓸 수 있지만 연식만큼 고정비가 비쌉니다. 매입가는 운임지수를 따라 오르내리고, 팔 때는 시세의 90%를 받습니다. <b>순위와 목표는 시세가 아닌 장부가로 계산</b>하므로, 사고팔기만으로는 순자산이 늘지 않습니다.</p>`;
+  h += `<div class="card"><h3>매물 ${S.used.length}척 · ${30 - (S.day % 30)}일 뒤 교체 · 현금 ${won(S.cash)}</h3><div class="yard">`;
+  for (const L of S.used) {
+    const t = SHIPS[L.type], cost = usedPrice(L);
+    h += `<div class="ycard"><div class="t"><b>${t.name}</b><span class="tag">${L.age}년</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>위치</dt><dd>${PORTS[L.loc].name}</dd><dt>고정비</dt><dd>${won(t.wage * (1 + 0.03 * L.age))}/일</dd><dt>신조가 대비</dt><dd>${Math.round(cost / newPrice(t) * 100)}%</dd></dl><button class="btn pri" data-act="buyused" data-u="${L.id}" ${S.cash >= cost ? '' : 'disabled'}>매입 ${won(cost)}</button></div>`;
+  }
+  if (!S.used.length) h += `<p class="muted">매물 없음</p>`;
   h += `</div></div>`;
+  const mine = S.ships.filter(s => s.loc === pid && !s.voy && s.mode !== 'fishing' && s.mode !== 'react');
+  h += `<div class="card"><h3>내 배 매각 · ${PORTS[pid].name}에 정박한 배</h3>${mine.length ? `<div class="list">${mine.map(sellBlock).join('')}</div>` : '<p class="muted" style="margin:0">이 항구에 매각할 수 있는 배가 없습니다.</p>'}</div>`;
   return h;
 }
 function yardPanel() {
-  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 고정비가 싸고 오래 씁니다. 중고선은 바로 쓰지만 연식만큼 고정비가 비쌉니다. 운임지수가 낮을 때(불황) 가격이 내려갑니다.</p>`;
+  let h = `<p class="muted" style="margin:0">신조는 기다려야 하지만 고정비가 싸고 오래 씁니다. 바로 쓸 배는 거래소의 중고선 매매에서 구할 수 있습니다. 수리·개조는 준비 중입니다.</p>`;
   h += `<div class="card"><h3>신조 발주 · 현금 ${won(S.cash)}</h3><div class="yard">`;
   for (const [k, t] of Object.entries(SHIPS)) {
     const lock = t.era > S.era, cost = newPrice(t);
@@ -993,14 +1073,52 @@ function yardPanel() {
   for (const L of LATER) h += `<div class="ycard locked"><div class="t"><b>${L.name}</b><span class="tag">본편</span></div><span class="muted" style="font-size:12px">${L.cap} · ${L.era}에 등장</span></div>`;
   h += `</div></div>`;
   if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
-  h += `<div class="card"><h3>중고선 시장 · ${30 - (S.day % 30)}일 뒤 매물 교체</h3><div class="yard">`;
-  for (const L of S.used) {
-    const t = SHIPS[L.type], cost = usedPrice(L);
-    h += `<div class="ycard"><div class="t"><b>${t.name}</b><span class="tag">${L.age}년</span></div><dl>${t.cap ? `<dt>적재</dt><dd>${nf(t.cap)}t</dd>` : ''}<dt>위치</dt><dd>${PORTS[L.loc].name}</dd><dt>고정비</dt><dd>${won(t.wage * (1 + 0.03 * L.age))}/일</dd><dt>신조가 대비</dt><dd>${Math.round(cost / newPrice(t) * 100)}%</dd></dl><button class="btn pri" data-act="buyused" data-u="${L.id}" ${S.cash >= cost ? '' : 'disabled'}>매입 ${won(cost)}</button></div>`;
-  }
-  if (!S.used.length) h += `<p class="muted">매물 없음</p>`;
-  h += `</div></div>`;
   return h;
+}
+
+/* ---- 항로 지도 ---- */
+function conRow(c) {
+  return `<div class="con"><div class="l1"><span class="route">${PORTS[c.from].name} → ${PORTS[c.to].name}</span><span class="pay">${won(c.pay)}</span></div><div class="l1"><small>${GOODS[c.good].name} ${c.q}t · ${nf(c.km)}km · 기한 ${c.due}일 · 마감 ${c.offer - S.day}일</small></div></div>`;
+}
+function portPanel() {
+  const pid = UI.port || S.home, P = PORTS[pid];
+  let h = `<div class="row2"><select id="portSel" aria-label="항구 선택">${Object.keys(PORTS).map(p => `<option value="${p}" ${p === pid ? 'selected' : ''} ${portOpen(p) ? '' : 'disabled'}>${PORTS[p].name}${portOpen(p) ? '' : ` (${PORTS[p].era}시대)`}</option>`).join('')}</select>${portOpen(pid) ? `<button class="btn" data-act="bld" data-b="exchange" data-p="${pid}">${P.name} 거래소 →</button>` : ''}</div>`;
+  h += `<div class="dhead"><h2>${P.name}${P.sub ? ` <span class="muted" style="font-size:14px;font-weight:500">${P.sub}</span>` : ''}</h2></div>`;
+  h += `<div class="row2"><span class="tag">항구 규모 ${'■'.repeat(P.size)}</span>${P.fish ? '<span class="tag">어장</span>' : ''}${P.tour ? `<span class="tag">관광 ${'★'.repeat(P.tour)}</span>` : ''}${P.traffic ? `<span class="tag">교통량 ${'▲'.repeat(P.traffic)}</span>` : ''}</div>`;
+  if (!portOpen(pid)) return h + `<div class="card"><p class="muted" style="margin:0">${P.era}시대(${ERA[P.era].name})에 열립니다. 필요 순자산 ${won(ERA[P.era].need)}.</p></div>`;
+  const area = portArea(pid);
+  h += `<div class="card kv"><div><small>기름값</small><b>${won(fuelPrice(pid))}/t</b></div><div><small>해역</small><b style="font-family:var(--f-body)">${AREAS[area]}</b></div><div><small>날씨 오늘·내일·모레</small><b style="font-family:var(--f-body)">${[0, 1, 2].map(k => wxTag(S.wx[area][k])).join(' ')}</b></div><div><small>출발 화물</small><b>${S.contracts.filter(c => c.from === pid).length}건</b></div></div>`;
+  const mine = S.ships.filter(s => s.loc === pid);
+  if (mine.length) h += `<div class="card"><h3>정박 중인 내 배 ${mine.length}척</h3><div class="list">${mine.map(shipCard).join('')}</div></div>`;
+  return h;
+}
+function consPanel() {
+  let h = '';
+  const act = S.ships.flatMap(sh => sh.cons.map(c => ({ c, sh })));
+  if (act.length) h += `<div class="card"><h3>운송 중 ${act.length}건 · 운임 합계 ${won(act.reduce((a, x) => a + x.c.pay, 0))}</h3><div class="list">${act.map(({ c, sh }) => `<div class="row2"><b>${GOODS[c.good].name} ${c.q}t → ${PORTS[c.to].name}</b><span class="muted">${esc(sh.name)} · ${won(c.pay)} · ${c.deadline - S.day >= 0 ? (c.deadline - S.day) + '일 남음' : '<span class="neg">지연</span>'}</span></div>`).join('')}</div></div>`;
+  const list = [...S.contracts].sort((a, b) => b.pay - a.pay);
+  h += `<div class="card"><h3>전국 운송 의뢰 ${list.length}건 · 출발 항구에 내 배가 있으면 그 배 기준 순이익</h3><div class="list">`;
+  for (const c of list) {
+    const ships = S.ships.filter(sh => sh.loc === c.from && canWork(sh) && T(sh).role === 'cargo' && canCarry(sh, c.good) && freeCap(sh) >= c.q);
+    const opts = ships.map(sh => ({ sh, e: jobNet(sh, c) })).filter(x => x.e).sort((a, b) => b.e.net - a.e.net).slice(0, 2);
+    const btns = opts.length ? opts.map(({ sh, e }) => `<button class="btn pri" data-act="load" data-c="${c.id}" data-id="${sh.id}">${esc(sh.name)}에 싣기 · 순이익 ${sgn(e.net)}</button>`).join('') : `<small class="muted">${PORTS[c.from].name}에 실을 수 있는 빈 배가 없음 · ${SHIPS[c.size] ? SHIPS[c.size].name + '급 화물' : ''}</small>`;
+    h += conRow(c).replace(/<\/div><\/div>$/, `</div><div class="acts" style="justify-content:flex-start">${btns}</div></div>`);
+  }
+  return h + `</div></div>`;
+}
+
+/* ---- 선대 관리 ---- */
+function fleetPanel() {
+  let h = `<div class="seg"><button data-act="fsub" data-x="ships" class="${UI.fsub !== 'co' ? 'on' : ''}">내 배 ${S.ships.length}척</button><button data-act="fsub" data-x="co" class="${UI.fsub === 'co' ? 'on' : ''}">회사 현황</button></div>`;
+  if (UI.fsub === 'co') return h + ledgerCard() + rankPanel();
+  h += `<div class="list">${S.ships.map(shipCard).join('')}</div>`;
+  if (S.orders.length) h += `<div class="card"><h3>건조 중</h3>${S.orders.map(o => `<div class="row2"><b>${SHIPS[o.type].name}</b><span class="muted">${PORTS[o.port].name} 인도 · ${o.ready - S.day}일 남음</span></div>`).join('')}</div>`;
+  return h + forecastCard();
+}
+function ledgerCard() {
+  const st = S.stats, op = st.freight + st.other - st.fuel - st.wage - st.fees - st.repair;
+  const row = (k, v, sign) => `<tr><td>${k}</td><td class="r ${sign < 0 && v ? 'neg' : ''}">${sign < 0 && v ? '−' : ''}${won(v)}</td></tr>`;
+  return `<div class="card"><h3>회사 장부 · 누적</h3><table class="trip">${row('운송 수입 (운임)', st.freight, 1)}${row('부가 수입 (조업·관광·급유)', st.other, 1)}${row('연료 구입비', st.fuel, -1)}${row('고정비 (선원·관리)', st.wage, -1)}${row('입항료·재가동', st.fees, -1)}${row('수리비', st.repair, -1)}<tr class="sum"><td>영업 이익</td><td class="r ${op >= 0 ? 'pos' : 'neg'}">${sgn(op)}</td></tr>${row('선박 매입·발주 (투자)', st.shipBuy, -1)}${row('선박 매각 대금', st.shipSell, 1)}</table><p class="muted" style="margin:8px 0 0;font-size:12px">연료는 살 때 장부에 들어갑니다(항차 정산표는 실제로 태운 양). 순위와 목표는 배를 시세가 아닌 장부가(감가상각만 반영)로 계산합니다. 항차 ${st.trips}회 · 배달 ${st.delivered}건 · 지연 ${st.late}건 · 빈 배 항해 ${st.ballast}회.</p></div>`;
 }
 function chartSvg() {
   const H = S.hist; if (H.length < 2) return '<p class="muted" style="margin:0">기록이 쌓이면 그래프가 그려집니다.</p>';
@@ -1032,19 +1150,33 @@ function rankPanel() {
   h += `<div class="card"><h3>선박왕 쟁탈전 · 순자산 순위</h3><div class="rank">${rl.map((r, i) => `<div class="rrow${r.me ? ' me' : ''}"><span class="pl">${i + 1}</span><span class="nm">${esc(r.name)}</span><span class="num">${won(r.w)}</span><div class="bar"><i style="width:${Math.max(2, Math.log10(Math.max(r.w, 100)) / Math.log10(top) * 100)}%"></i></div></div>`).join('')}</div></div>`;
   h += `<div class="card chart"><h3>순자산 추이 · 로그 눈금</h3>${chartSvg()}</div>`;
   h += `<div class="card"><h3>뉴스</h3><div class="news">${S.news.map(n => `<div><span>${dateStr(n.d)}</span><p style="margin:0">${esc(n.t)}</p></div>`).join('')}</div></div>`;
-  h += `<div class="card"><h3>설정</h3><div class="list"><label class="chk"><input type="checkbox" id="optPause" ${S.autoPause ? 'checked' : ''}> 배가 도착하면 일시정지</label><label class="chk"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 시작 가이드 보기</label><div class="row2">${UI.confirm === 'new' ? `<span>진행 중인 게임이 지워집니다.</span><button class="btn warn" data-act="newgame">새 게임 시작</button><button class="btn" data-act="cancel">취소</button>` : `<button class="btn" data-act="askNew">새 게임</button>`}</div></div></div>`;
+  h += metricsCard();
+  h += `<div class="card"><h3>설정</h3><div class="list"><label class="chk"><input type="checkbox" id="optPause" ${S.autoPause ? 'checked' : ''}> 배가 도착하면 일시정지</label><label class="chk"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 항차마다 정산표 보기</label><div class="row2">${UI.confirm === 'new' ? `<span>진행 중인 게임이 지워집니다.</span><button class="btn warn" data-act="newgame">새 게임 시작</button><button class="btn" data-act="cancel">취소</button>` : `<button class="btn" data-act="askNew">새 게임</button>`}</div></div></div>`;
   return h;
+}
+// measured during real play, for the human test sheet (this browser session only)
+function metricsCard() {
+  const m = UI.metrics; if (!m) return '';
+  const t = k => m[k] ? `${Math.round(m[k] / 1000)}초` : '아직';
+  return `<div class="card"><h3>첫 항차 기록 · 사람 테스트용</h3><table class="trip"><tr><td>첫 의뢰 선적까지</td><td class="r">${t('load')}</td></tr><tr><td>첫 출항까지</td><td class="r">${t('sail')}</td></tr><tr><td>첫 정산까지</td><td class="r">${t('settle')}</td></tr><tr><td>정산 뒤 다음 선택까지</td><td class="r">${t('next')}</td></tr><tr><td>그동안 누른 횟수</td><td class="r">${m.clicksAtNext ?? m.clicks}회</td></tr></table><p class="muted" style="margin:8px 0 0;font-size:12px">이 브라우저에서 새 게임을 시작한 뒤부터 잰 실제 시간입니다.</p></div>`;
 }
 function renderPanel() {
   const p = $('#panel'); let h = '';
-  if (UI.tab === 'fleet') { const sh = S.ships.find(s => s.id === UI.ship); h = sh ? shipDetail(sh) : fleetList(); }
-  else if (UI.tab === 'port') h = portPanel();
-  else if (UI.tab === 'cons') h = consPanel();
-  else if (UI.tab === 'yard') h = yardPanel();
-  else h = rankPanel();
-  p.innerHTML = h;
+  if (UI.tab === 'home') h = homePanel();
+  else if (UI.tab === 'map') h = portPanel() + forecastCard() + consPanel();
+  else { const sh = S.ships.find(s => s.id === UI.ship); h = sh ? shipDetail(sh) : fleetPanel(); }
+  // on phones the goal card sits on top of the sheet instead of over the 3D port
+  p.innerHTML = `<div class="goal goal2 glass">${goalHtml}</div>` + h;
 }
-function render() { renderTop(); renderPanel(); if (UI.view !== 'port3d') { drawBadges(); drawShips(); } P3.sync(); }
+// which scene sits behind the HUD: the home port in 3D, or the chart
+function wantedView() {
+  if (!P3.ok || !p3Ready) return UI.mapView;
+  if (UI.tab === 'map') return UI.mapView;
+  if (UI.tab === 'fleet') { const sh = S && S.ships.find(s => s.id === UI.ship); if (sh && !sh.loc) return UI.mapView; }
+  return 'port3d';
+}
+function syncView() { const v = wantedView(); if (v !== UI.view) { UI.view = v; drawMap(); } }
+function render() { syncView(); renderTop(); renderPanel(); if (UI.view !== 'port3d') { drawBadges(); drawShips(); } P3.sync(); }
 
 /* ================= MODALS ================= */
 function modal(html) { const m = $('#modal'); m.innerHTML = `<div class="mbox">${html}</div>`; m.hidden = false; }
@@ -1064,6 +1196,21 @@ function eraModal() {
   const ports = Object.values(PORTS).filter(p => p.era === S.era).map(p => p.name).join(', ');
   const goods = Object.values(GOODS).filter(g => g.era === S.era).map(g => g.name).join(', ');
   modal(`<h1>${E.name}</h1><p>${S.name}의 순자산이 ${won(E.need)}을 넘었습니다. 더 크고 연료를 많이 쓰는 배와 더 먼 항로가 열립니다. 기름값이 운영에 더 크게 영향을 줍니다.</p><div class="card kv" style="grid-template-columns:1fr"><div><small>새 선박</small><b style="font-family:var(--f-body)">${ships}</b></div><div><small>새 항구</small><b style="font-family:var(--f-body)">${ports}</b></div><div><small>새 화물 종류</small><b style="font-family:var(--f-body)">${goods}</b></div></div>${S.era === 3 ? '<p>지도 오른쪽 위 「동북아」로 일본·중국 항로를 확인하세요.</p>' : ''}<button class="btn pri wide" data-act="close">계속</button>`);
+}
+// settlement sheet: what the voyage earned and what it cost, then the next choice
+function tripModal(sh, t) {
+  const row = (k, v, sign) => `<tr><td>${k}</td><td class="r ${sign < 0 && v ? 'neg' : ''}">${sign < 0 && v ? '−' : ''}${won(v)}</td></tr>`;
+  const P = PORTS[t.to], here = S.contracts.filter(c => c.from === t.to && canCarry(sh, c.good)).length;
+  const low = T(sh).tank && sh.fuel < T(sh).tank * 0.4;
+  modal(`<h1 style="font-size:22px">항차 정산 · ${esc(sh.name)}</h1><p style="margin:0 0 8px">${PORTS[t.from].name} → ${P.name} · ${t.days}일 · 화물 ${t.jobs}건${t.late ? ` (지연 ${t.late}건, 운임 절반)` : ''}</p>
+  <table class="trip">${row('운임 수입', t.freight, 1)}${row(`연료비 (${t.fuelT.toFixed(2)}t)`, t.fuelCost, -1)}${row('고정비 (선원·관리)', t.wage, -1)}${row('입항료', t.fee, -1)}${t.extra ? row('예인·수리', t.extra, -1) : ''}<tr class="sum"><td>이번 항차 순이익</td><td class="r ${t.net >= 0 ? 'pos' : 'neg'}">${sgn(t.net)}</td></tr></table>
+  <p class="muted" style="font-size:12.5px;margin:8px 0">${t.net >= 0 ? (t.freight ? '운임이 비용을 넘었습니다. 돌아오는 길에도 짐을 실으면 이익이 더 커집니다.' : '') : t.freight ? '비용이 운임보다 컸습니다. 하루 순이익이 높은 의뢰를 고르거나 연료가 싼 항구에서 채우세요.' : '빈 배 이동은 비용만 듭니다. 화물이 많은 항구로 옮길 때만 쓰세요.'}</p>
+  ${here ? '' : `<p class="hint" style="margin:0 0 8px">${P.name}에는 지금 이 배가 실을 화물이 없습니다. 하루 이틀 기다리면 새 의뢰가 붙고, 급하면 빈 배로 화물이 많은 항구(부산·인천 등)로 옮길 수 있습니다.</p>`}<h3>다음 선택</h3><div class="nexts">
+  <button class="btn pri wide" data-act="tripnext" data-n="ex" data-id="${sh.id}" data-p="${t.to}">${here ? `${P.name} 거래소에서 다음 의뢰 고르기 · ${here}건` : `${P.name}에서 다음 행선지 고르기 · 지금 실을 의뢰 없음`}</button>
+  ${low ? `<button class="btn wide" data-act="tripnext" data-n="ship" data-id="${sh.id}">연료 채우기 · 남은 연료 ${sh.fuel.toFixed(2)}t</button>` : ''}
+  <button class="btn wide" data-act="tripnext" data-n="fleet" data-id="${sh.id}">선대 관리 · 회사 장부 보기</button>
+  <button class="btn wide" data-act="tripnext" data-n="go" data-id="${sh.id}">계속 진행</button></div>
+  <label class="chk" style="margin-top:10px"><input type="checkbox" id="optTip" ${S.tip ? 'checked' : ''}> 항차마다 정산표 보기 (끄면 짧은 알림만)</label>`);
 }
 function winModal() {
   modal(`<h1>선박왕 등극</h1><p>${dateStr(S.day)}, ${S.name}이(가) 순자산 ${won(netWorth())}으로 라이벌 해운사를 모두 제쳤습니다. 프로토타입의 목표를 달성했습니다. 계속 플레이할 수 있습니다.</p><button class="btn pri wide" data-act="close">계속 경영하기</button>`);
@@ -1096,23 +1243,43 @@ document.addEventListener('click', ev => {
   const a = el.dataset.act, id = Number(el.dataset.id), sh = S && S.ships.find(s => s.id === id);
   switch (a) {
     case 'pickStart': UI.startPick = el.dataset.p; document.querySelectorAll('.starts button').forEach(b => b.classList.toggle('on', b.dataset.p === UI.startPick)); return;
-    case 'start': newGame(($('#coIn').value || '').trim(), UI.startPick); Object.assign(UI, { port: S.home, ship: null, tab: 'fleet', t: 0, view: P3.ok ? 'port3d' : 'kr' }); closeModal(); drawMap(); render(); save(); return;
-    case 'continue': S = loadSave(); UI.port = S.home; UI.t = S.day; closeModal(); drawMap(); render(); return;
+    case 'start': newGame(($('#coIn').value || '').trim(), UI.startPick); Object.assign(UI, { port: S.home, ship: null, tab: 'home', bld: null, exTab: 'cargo', exShip: null, fsub: 'ships', t: 0, metrics: { t0: Date.now(), clicks: 0 } }); closeModal(); render(); save(); return;
+    case 'continue': S = loadSave(); Object.assign(UI, { port: S.home, t: S.day, tab: 'home', bld: null }); closeModal(); render(); return;
     case 'close': closeModal(); render(); return;
     case 'restart': try { localStorage.removeItem(SAVE_KEY); } catch (e) {} UI.confirm = null; startModal(false); return;
   }
   if (!S) return;
+  const m = UI.metrics;
+  if (m && !m.next) m.clicks++;
+  const before = m && { cons: S.ships.reduce((n, x) => n + x.cons.length, 0), voy: S.stats.voyages };
   switch (a) {
     case 'play': setPlaying(!UI.playing); break;
     case 'speed': UI.speed = SPEEDS[(SPEEDS.indexOf(UI.speed) + 1) % SPEEDS.length]; break;
     case 'step': setPlaying(false); tick(); UI.t = S.day; break;
-    case 'view': UI.view = el.dataset.v; drawMap(); break;
-    case 'p3tab': UI.tab = el.dataset.t; UI.ship = null; UI.confirm = null; scrollToPanel(); SND.play('click'); break;
+    case 'mapview': UI.mapView = el.dataset.v; UI.view = ''; break;
+    case 'p3tab': openBld(el.dataset.t); SND.play('click'); break;
+    case 'bld': openBld(el.dataset.b, el.dataset.p, id); break;
+    case 'extab': UI.exTab = el.dataset.x; break;
+    case 'exship': UI.exShip = id; break;
+    case 'fsub': UI.fsub = el.dataset.x; UI.ship = null; break;
+    case 'gohome': UI.port = S.home; UI.bld = null; break;
+    case 'goport': UI.port = el.dataset.p; break;
+    case 'goal-ex': { const s2 = S.ships.find(x => x.loc && canWork(x) && T(x).role === 'cargo'); openBld('exchange', s2 ? s2.loc : S.home, s2 ? s2.id : 0); break; }
+    case 'goal-yard': openBld('yard', S.home); break;
+    case 'tripnext': {
+      if (m && m.settle && !m.next) { m.next = Date.now() - m.t0; m.clicksAtNext = m.clicks; }
+      closeModal(); const n = el.dataset.n;
+      if (n === 'ex') openBld('exchange', el.dataset.p, id);
+      else if (n === 'ship') { UI.tab = 'fleet'; UI.ship = id; UI.bld = null; }
+      else if (n === 'fleet') { UI.tab = 'fleet'; UI.ship = null; UI.fsub = 'co'; }
+      else setPlaying(true);
+      break;
+    }
     case 'snd': SND.on = !SND.on; try { localStorage.setItem('shipking-snd', SND.on ? '1' : '0'); } catch (e) {} if (SND.on) SND.play('click'); break;
-    case 'tab': UI.tab = el.dataset.t; UI.confirm = null; if (UI.tab === 'fleet') UI.ship = null; window.scrollTo({ top: 0 }); break;
+    case 'tab': UI.tab = el.dataset.t; UI.confirm = null; UI.ship = null; if (UI.tab === 'home') UI.bld = null; $('#panel').scrollTop = 0; break;
     case 'ship': UI.ship = id; UI.tab = 'fleet'; UI.confirm = null; if (sh && sh.loc) UI.port = sh.loc; break;
     case 'back': UI.ship = null; UI.confirm = null; break;
-    case 'port': UI.port = el.dataset.p; UI.tab = 'port'; drawMap(); break;
+    case 'port': UI.port = el.dataset.p; UI.tab = 'map'; break;
     case 'fuel': if (sh) doRefuel(sh, Number(el.dataset.f)); break;
     case 'load': if (sh) doLoad(Number(el.dataset.c), sh); break;
     case 'unload': if (sh) doUnload(Number(el.dataset.c), sh); break;
@@ -1129,6 +1296,10 @@ document.addEventListener('click', ev => {
     case 'newgame': UI.confirm = null; setPlaying(false); startModal(false); return;
     case 'cancel': UI.confirm = null; break;
   }
+  if (m && before) {
+    if (!m.load && S.ships.reduce((n, x) => n + x.cons.length, 0) > before.cons) m.load = Date.now() - m.t0;
+    if (!m.sail && S.stats.voyages > before.voy) m.sail = Date.now() - m.t0;
+  }
   render(); save();
 });
 document.addEventListener('change', ev => {
@@ -1141,8 +1312,14 @@ let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTime
 document.addEventListener('visibilitychange', () => { if (document.hidden && S) { save(); setPlaying(false); } });
 document.addEventListener('keydown', ev => { if (ev.code === 'Space' && S && $('#modal').hidden && !/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) { ev.preventDefault(); setPlaying(!UI.playing); } });
 
-function scrollToPanel() {
-  if (window.innerWidth < 960) $('#tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+// open a building of the port in the home screen (exchange / yard / teahouse)
+function openBld(b, port, shipId) {
+  UI.tab = 'home'; UI.ship = null; UI.confirm = null; UI.bld = b || null;
+  if (port) UI.port = port;
+  if (shipId) UI.exShip = shipId;
+  if (b === 'exchange') UI.exTab = 'cargo';
+  $('#panel').scrollTop = 0;
+  if (window.innerWidth < 960 && b) $('#panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 let p3Ready = false;
 function start(data) {
@@ -1151,17 +1328,22 @@ function start(data) {
     toast, sound: k => SND.play(k), pause: () => setPlaying(false), save,
     era: eraModal, win: winModal, over: overModal,
     sailed: () => { UI.confirm = null; if (!UI.playing) setPlaying(true); },
+    trip: (sh, t, msg) => {
+      const m = UI.metrics; if (m && !m.settle && t.freight > 0) m.settle = Date.now() - m.t0;
+      if (S.tip || S.stats.trips <= 3) { setPlaying(false); tripModal(sh, t); }
+      else toast(`${msg} · 순이익 ${sgn(t.net)}`);
+    },
   });
   p3Ready = P3.ok && P3.init($('#p3'), (kind, v) => {
     if (kind === 'ship') { UI.ship = v; UI.tab = 'fleet'; UI.confirm = null; SND.play('click'); }
-    if (kind === 'tab') { UI.tab = v; UI.ship = null; UI.confirm = null; SND.play('click'); }
-    render(); scrollToPanel();
+    if (kind === 'tab') { openBld(v); SND.play('click'); }
+    render();
   });
-  if (!p3Ready && UI.view === 'port3d') UI.view = 'kr';
-  if (data && data.S) { S = data.S; Object.assign(UI, data.UI || {}); UI.playing = false; drawMap(); render(); }
+  if (!p3Ready && UI.view === 'port3d') UI.view = UI.mapView;
+  if (data && data.S) { S = data.S; Object.assign(UI, data.UI || {}); UI.playing = false; UI.view = ''; render(); }
   else { if (p3Ready) { $('#map').style.visibility = 'hidden'; $('#legend').hidden = true; P3.show(); } startModal(!!loadSave()); }
   requestAnimationFrame(frame);
 }
-window.claude?.hot?.snapshot?.(() => ({ S, UI: { tab: UI.tab, ship: UI.ship, port: UI.port, view: UI.view, speed: UI.speed, t: UI.t } }));
+window.claude?.hot?.snapshot?.(() => ({ S, UI: { tab: UI.tab, bld: UI.bld, ship: UI.ship, port: UI.port, mapView: UI.mapView, speed: UI.speed, t: UI.t, metrics: UI.metrics } }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 </script>

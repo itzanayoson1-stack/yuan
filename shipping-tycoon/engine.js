@@ -4,7 +4,7 @@
    It never touches the DOM. Anything the screen should react to goes through HOOK. */
 'use strict';
 let S = null;
-const HOOK = { toast() {}, sound() {}, pause() {}, era() {}, win() {}, over() {}, save() {}, sailed() {} };
+const HOOK = { toast() {}, sound() {}, pause() {}, era() {}, win() {}, over() {}, save() {}, sailed() {}, trip() {} };
 // Seeded random (mulberry32). Two streams, both stored in the save:
 // S.ms = the outside world (freight index, oil, weather, port booms, rivals) — identical for a seed whatever the player does,
 // S.rs = everything the player's choices touch (jobs, used ships, accidents).
@@ -224,9 +224,12 @@ function typeCarries(t, g) { return !!t.cls && t.cls.includes(GOODS[g].cls); }
 const canCarry = (sh, g) => typeCarries(T(sh), g);
 const priceMul = () => 0.85 + 0.15 * S.idx;
 const newPrice = t => t.price * priceMul();
-function shipValue(sh) { return T(sh).price * Math.max(0.1, 1 - sh.age / 365 / 35) * priceMul() * 0.9; }
+function shipValue(sh) { return T(sh).price * Math.max(0.1, 1 - sh.age / 365 / 35) * priceMul() * 0.9; } // what a buyer pays today
+// book value: depreciation only, no market swing — used for net worth, rank, eras and the goal,
+// so a boom alone cannot win the game and unrealised price gains are never counted
+function bookValue(sh) { return T(sh).price * Math.max(0.1, 1 - sh.age / 365 / 35) * 0.9; }
 const usedPrice = L => SHIPS[L.type].price * Math.max(0.1, 1 - L.age / 35) * priceMul();
-function netWorth() { let v = S.cash; for (const sh of S.ships) v += shipValue(sh) + (sh.fuel || 0) * BASE_FUEL * oilLevel(); for (const o of S.orders) v += o.paid * 0.8; return v; }
+function netWorth() { let v = S.cash; for (const sh of S.ships) v += bookValue(sh) + (sh.fuel || 0) * BASE_FUEL; for (const o of S.orders) v += o.paid * 0.8; return v; }
 function rankList() {
   const arr = [{ name: S.name, w: netWorth(), me: true }, ...S.rivals.map(r => ({ name: r.name, w: r.w }))];
   return arr.sort((a, b) => b.w - a.w);
@@ -277,13 +280,16 @@ function newGame(name, home, seed) {
     ships: [], seq: {}, sid: 1, uid: 1, contracts: [], cid: 1, used: [], orders: [], events: [], wx: {},
     rivals: RIVALS.map(r => ({ ...r })), news: [], hist: [], won: false, over: false, autoPause: true, tip: true,
     // company-wide ledger for reports and balance KPIs
-    stats: { freight: 0, other: 0, fuel: 0, wage: 0, fees: 0, repair: 0, voyages: 0, ballast: 0, late: 0, delivered: 0 },
+    stats: { freight: 0, other: 0, fuel: 0, wage: 0, fees: 0, repair: 0, voyages: 0, ballast: 0, late: 0, delivered: 0, trips: 0, shipBuy: 0, shipSell: 0 },
   });
   for (const a in AREAS) { S.wx[a] = [0]; S.wx[a].push(nextWx(a, 0, 1)); S.wx[a].push(nextWx(a, S.wx[a][1], 2)); }
   addShip('ttak', home, 0);
   refreshUsed();
   for (let i = 0; i < 12; i++) genContract();
   for (let i = 0; i < 3; i++) genContract(home, 'ttak');
+  // the first voyage must be possible: make sure the starting boat has at least one paying job at home
+  const first = S.ships[0];
+  for (let i = 0; i < 30 && !S.contracts.some(c => c.from === home && canCarry(first, c.good) && c.q <= T(first).cap && (jobNet(first, c) || { net: -1 }).net > 0); i++) genContract(home, 'ttak');
   news(`${S.name} 창업. ${PORTS[home].name} 나루에서 똑딱선 한 척으로 운송업을 시작합니다.`);
   S.hist.push(histPoint());
   return S;
@@ -372,7 +378,9 @@ function doSail(sh, to) {
   const p = plan(sh, to); if (!p) return false;
   if (T(sh).burn && sh.fuel + 1e-6 < p.fuel) { HOOK.toast(`연료가 모자랍니다. 예상 ${p.fuel.toFixed(2)}t 필요, 남은 연료 ${sh.fuel.toFixed(2)}t`); return false; }
   S.cash -= portFee(T(sh)); sh.spend += portFee(T(sh)); S.stats.fees += portFee(T(sh)); S.stats.voyages++; if (!load(sh)) S.stats.ballast++;
-  sh.voy = { from: sh.loc, to, path: p.path, segs: p.segs, dist: p.dist, done: 0, dep: S.day, next: 0, eta: p.days };
+  sh.voy = { from: sh.loc, to, path: p.path, segs: p.segs, dist: p.dist, done: 0, dep: S.day, next: 0, eta: p.days,
+    // per-voyage account for the settlement card
+    fee: portFee(T(sh)), fp: fuelPrice(sh.loc), fuelUsed: 0, emFuel: 0, wage: 0, extra: 0, laden: load(sh) > 0 };
   sh.voy.next = dayStep(T(sh), areaAt(p.segs, 0), 0, load(sh) > 0).spd;
   sh.loc = null; sh.mode = 'idle';
   HOOK.toast(`${sh.name} 출항 → ${PORTS[to].name} (예상 ${p.days}일)`); HOOK.sound('horn');
@@ -404,7 +412,7 @@ function doOrder(type) {
   const t = SHIPS[type]; if (!t || t.era > S.era) return false;
   const cost = newPrice(t);
   if (S.cash < cost) return false;
-  S.cash -= cost;
+  S.cash -= cost; S.stats.shipBuy += cost;
   S.orders.push({ type, ready: S.day + t.build, port: deliveryPort(t), paid: cost });
   HOOK.toast(`${t.name} 발주 완료. ${t.build}일 뒤 ${PORTS[deliveryPort(t)].name}에서 인도`); HOOK.sound('click');
   return true;
@@ -413,7 +421,7 @@ function doBuyUsed(id) {
   const i = S.used.findIndex(u => u.id === id); if (i < 0) return false;
   const L = S.used[i], cost = usedPrice(L);
   if (S.cash < cost) return false;
-  S.cash -= cost; S.used.splice(i, 1);
+  S.cash -= cost; S.stats.shipBuy += cost; S.used.splice(i, 1);
   const sh = addShip(L.type, L.loc, L.age * 365); sh.fuel = SHIPS[L.type].tank * 0.3;
   HOOK.toast(`${sh.name} 매입 (${L.age}년 된 중고선, ${PORTS[L.loc].name})`);
   return true;
@@ -421,7 +429,7 @@ function doBuyUsed(id) {
 function doSellShip(sh) {
   if (!docked(sh) || sh.cons.length || sh.mode === 'fishing' || sh.mode === 'react') return false;
   const v = shipValue(sh);
-  S.cash += v; S.ships = S.ships.filter(x => x !== sh);
+  S.cash += v; S.stats.shipSell += v; S.ships = S.ships.filter(x => x !== sh);
   HOOK.toast(`${sh.name} 매각 ${won(v)}`);
   return true;
 }
@@ -459,7 +467,7 @@ function tick() {
   for (const sh of S.ships) {
     const t = T(sh);
     sh.age++;
-    S.cash -= wage(sh); sh.spend += wage(sh); S.stats.wage += wage(sh);
+    S.cash -= wage(sh); sh.spend += wage(sh); S.stats.wage += wage(sh); if (sh.voy) sh.voy.wage += wage(sh);
     if (sh.loc && sh.mode === 'tour') { const v = (PORTS[sh.loc].tour || 0) * 60 * (0.7 + 0.3 * S.idx) / tourCount[sh.loc]; S.cash += v; sh.earn += v; S.stats.other += v; }
     if (sh.loc && sh.mode === 'bunker') { const v = (PORTS[sh.loc].traffic || 0) * 260 * S.idx * oilLevel() / bunkCount[sh.loc]; S.cash += v; sh.earn += v; S.stats.other += v; }
     if (sh.mode === 'react' && S.day >= sh.busy) { sh.mode = 'idle'; news(`${sh.name} 재가동 완료`); }
@@ -478,24 +486,29 @@ function tick() {
       if (t.burn) {
         if (sh.fuel < st.fuel) {
           const tow = st.fuel * fuelPrice(v.to) * 4 + fullWage(sh) * 3;
-          S.cash -= tow; sh.spend += tow; S.stats.fuel += tow; sh.fuel = st.fuel; spd *= 0.4;
+          S.cash -= tow; sh.spend += tow; S.stats.fuel += tow; v.extra += tow; v.emFuel += st.fuel - sh.fuel; sh.fuel = st.fuel; spd *= 0.4;
           news(`${sh.name} 연료 고갈 — 긴급 급유·예인 ${won(tow)}`); HOOK.toast(`${sh.name} 연료 고갈! 긴급 급유 비용 ${won(tow)}`);
         }
-        sh.fuel = Math.max(0, sh.fuel - st.fuel);
+        sh.fuel = Math.max(0, sh.fuel - st.fuel); v.fuelUsed += st.fuel;
       }
-      if (st.w === 3 && rand() < 0.06) { const dmg = t.price * 0.02; S.cash -= dmg; sh.spend += dmg; S.stats.repair += dmg; news(`${sh.name} 태풍 피해 — 수리비 ${won(dmg)}`); }
+      if (st.w === 3 && rand() < 0.06) { const dmg = t.price * 0.02; S.cash -= dmg; sh.spend += dmg; S.stats.repair += dmg; v.extra += dmg; news(`${sh.name} 태풍 피해 — 수리비 ${won(dmg)}`); }
       v.done += spd;
       if (v.done >= v.dist) {
         sh.loc = v.to; sh.voy = null;
-        let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`, got = 0;
+        let msg = `${sh.name} ${PORTS[sh.loc].name} 도착`, got = 0, lateN = 0, jobs = 0;
         const keep = [];
         for (const c of sh.cons) {
-          if (c.to === sh.loc) { const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay; S.cash += pay; sh.earn += pay; S.stats.freight += pay; S.stats.delivered++; if (late) S.stats.late++; got += pay; if (late) msg += ' · 기한 초과로 운임 절반'; }
+          if (c.to === sh.loc) { const late = S.day > c.deadline, pay = late ? c.pay / 2 : c.pay; S.cash += pay; sh.earn += pay; S.stats.freight += pay; S.stats.delivered++; if (late) { S.stats.late++; lateN++; } jobs++; got += pay; if (late) msg += ' · 기한 초과로 운임 절반'; }
           else keep.push(c);
         }
         sh.cons = keep;
         if (got) { msg += ` · 운임 ${won(got)}`; HOOK.sound('coin'); } else HOOK.sound('bell');
-        news(msg); HOOK.toast(msg); arrived = true;
+        const fuelCost = (v.fuelUsed - v.emFuel) * v.fp;
+        const trip = { ship: sh.id, from: v.from, to: v.to, days: S.day - v.dep, jobs, late: lateN, freight: got, fee: v.fee, fuelT: v.fuelUsed, fuelCost, wage: v.wage, extra: v.extra };
+        trip.net = trip.freight - trip.fee - trip.fuelCost - trip.wage - trip.extra;
+        sh.lastTrip = trip; S.stats.trips++;
+        news(msg); arrived = true;
+        HOOK.trip(sh, trip, msg);
       } else v.next = dayStep(t, areaAt(v.segs, v.done), 1, load(sh) > 0).spd;
     }
   }

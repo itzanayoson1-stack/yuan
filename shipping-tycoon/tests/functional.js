@@ -182,5 +182,34 @@ test('같은 시드면 플레이 방식이 달라도 시황·유가·날씨·라
   for (let i = 0; i < a.length; i++) if (a[i].split('|').slice(0, 3).join() !== b[i].split('|').slice(0, 3).join() || a[i].split('|')[3] !== b[i].split('|')[3] || a[i].split('|')[4] !== b[i].split('|')[4]) throw new Error(`${i + 1}일째 시장이 달라짐`);
 });
 
+test('항차 결과의 순이익은 실제 현금 변화와 맞는다 (운임 − 입항료 − 고정비 − 기타, 연료는 출항 전 구입분)', () => {
+  const E = fresh(31); const { sh, c } = loadedShip(E); E.doLoad(c.id, sh); E.doRefuel(sh, 1);
+  let trip = null; E.HOOK.trip = (s, t) => { trip = t; };
+  const cash0 = E.S.cash, fuel0 = sh.fuel;
+  ok(E.doSail(sh, c.to), '출항 실패');
+  for (let i = 0; i < 60 && sh.voy; i++) E.tick();
+  ok(trip, '결과 기록 없음');
+  const cashDelta = E.S.cash - cash0;
+  const fromTrip = trip.freight - trip.fee - trip.wage - trip.extra;
+  ok(Math.abs(cashDelta - fromTrip) < 0.01, `현금 변화 ${cashDelta.toFixed(2)} vs 결과 ${fromTrip.toFixed(2)}`);
+  ok(Math.abs(trip.fuelT - (fuel0 - sh.fuel)) < 1e-9, '연료 사용량 불일치');
+  ok(Math.abs(trip.net - (fromTrip - trip.fuelCost)) < 1e-9, '순이익 계산');
+});
+
+test('승리 판정용 순자산은 시세(운임지수)에 흔들리지 않는다 (장부가)', () => {
+  const E = fresh(32); E.addShip('hwangpo', 'mapo', 400);
+  E.S.idx = 0.6; const a = E.netWorth(); E.S.idx = 1.6; const b = E.netWorth();
+  eq(Math.round(a), Math.round(b), '불황·호황 순자산');
+  ok(E.shipValue(E.S.ships[1]) > E.bookValue(E.S.ships[1]), '호황 매각가는 장부가보다 높아야 함');
+});
+
+test('어느 시드로 시작해도 모항에 첫 항차로 남는 의뢰가 있다', () => {
+  for (let seed = 1; seed <= 60; seed++) for (const home of ['mapo', 'gupo']) {
+    const E = fresh(seed, home); const sh = E.S.ships[0];
+    const good = E.S.contracts.filter(c => c.from === home && E.canCarry(sh, c.good) && c.q <= E.T(sh).cap && (E.jobNet(sh, c) || { net: -1 }).net > 0);
+    ok(good.length > 0, `시드 ${seed} ${home}: 남는 의뢰 없음`);
+  }
+});
+
 console.log(`\n${pass}개 통과 · ${fail}개 실패`);
 if (fail) process.exitCode = 1;

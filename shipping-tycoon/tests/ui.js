@@ -27,40 +27,61 @@ async function open(browser, { width = 400, height = 860, dark = false, blockThr
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   console.log('\n선박왕 화면 점검\n');
 
-  { // first voyage on a phone: start, load a job, sail, auto-pause on arrival
+  { // first voyage on a phone, following the goal card: exchange → load → sail → settlement → next choice
     const { page, errors } = await open(browser);
-    await page.click('[data-act=start]'); await page.click('.shipcard');
-    const load = await page.$('[data-act=load]:not([disabled])'); if (load) await load.click();
-    await page.click('.dest.has').catch(() => page.click('.dest'));
-    await page.waitForTimeout(6000);
-    const st = await page.evaluate(() => ({ delivered: S.stats.delivered, playing: UI.playing, view: UI.view }));
-    check('첫 항차: 선적 → 출항 → 도착 시 운임과 일시정지', st.delivered >= 1 && !st.playing, JSON.stringify(st));
-    for (const t of ['port', 'cons', 'yard', 'rank', 'fleet']) await page.click(`[data-t=${t}]`);
-    await page.click('[data-v=kr]'); await page.click('[data-v=nea]');
-    const has3d = await page.evaluate(() => P3.ok);
+    await page.click('[data-act=start]'); await page.waitForTimeout(300);
+    const g0 = await page.textContent('.goal:visible');
+    check('오늘의 목표 카드가 첫 할 일을 알려 줌', /첫 의뢰/.test(g0), g0.slice(0, 40));
+    await page.click('.goal:visible .gbtn');
+    check('목표 버튼 → 모항 거래소 화물 벽보', await page.evaluate(() => UI.tab === 'home' && UI.bld === 'exchange' && !!document.querySelector('.board')));
+    await page.click('.board [data-act=load]:not([disabled])');
+    await page.click('.dest.has');
+    await page.waitForSelector('#modal:not([hidden]) [data-act=tripnext]', { timeout: 15000 }).catch(() => {});
+    const st = await page.evaluate(() => ({ delivered: S.stats.delivered, playing: UI.playing, modal: !$('#modal').hidden, net: S.ships[0].lastTrip && S.ships[0].lastTrip.net }));
+    check('첫 항차: 선적 → 출항 → 도착 시 정산표와 일시정지', st.delivered >= 1 && !st.playing && st.modal, JSON.stringify(st));
+    const rows = await page.$$eval('#modal .trip tr', els => els.length);
+    check('정산표에 운임·연료비·고정비·입항료·순이익', rows >= 5, rows + '줄');
+    await page.click('[data-act=tripnext][data-n=ex]');
+    const nx = await page.evaluate(() => ({ bld: UI.bld, port: UI.port, to: S.ships[0].loc, m: UI.metrics }));
+    check('다음 선택 → 도착 항구의 거래소', nx.bld === 'exchange' && nx.port === nx.to, JSON.stringify({ bld: nx.bld, port: nx.port }));
+    check('첫 항차 기록이 남음 (선적·출항·정산·다음 선택)', ['load', 'sail', 'settle', 'next'].every(k => nx.m[k] > 0), `누른 횟수 ${nx.m.clicksAtNext}회`);
+    console.log(`        첫 항차까지 누른 횟수 ${nx.m.clicksAtNext}회 (자동 테스트라 시간은 의미 없음)`);
+    for (const t of ['map', 'fleet', 'home']) { await page.click(`#tabs [data-t=${t}]`); }
+    await page.click('#tabs [data-t=map]'); await page.click('[data-v=nea]'); await page.click('[data-v=kr]');
+    await page.click('#tabs [data-t=fleet]'); await page.click('[data-act=fsub][data-x=co]');
+    check('회사 장부: 운송·부가 수입과 선박 매매가 따로', await page.evaluate(() => /운송 수입/.test(document.body.textContent) && /부가 수입/.test(document.body.textContent) && /선박 매입/.test(document.body.textContent)));
+    await page.click('#tabs [data-t=home]'); await page.click('[data-act=bld][data-b=exchange]'); await page.click('[data-act=extab][data-x=sp]');
+    check('거래소 중고선 매매 탭', await page.evaluate(() => /매물/.test($('#panel').textContent)));
+    await page.click('[data-act=bld][data-b=""]'); await page.click('[data-act=bld][data-b=teahouse]');
+    check('닻 다방은 준비 중 안내', await page.evaluate(() => /준비 중/.test($('#panel').textContent)));
+    const has3d = await page.evaluate(() => P3.ok && p3Ready);
     if (has3d) {
-      await page.click('[data-v=port3d]'); await page.waitForTimeout(800);
+      await page.click('#tabs [data-t=home]'); await page.waitForTimeout(800);
       const labels = await page.$$eval('.p3lab', els => els.map(e => e.textContent));
-      check('3D 항구: 건물 표지가 보이고 누르면 해당 탭이 열림', labels.length >= 3, labels.join(', '));
-      await page.click('.p3lab >> nth=0'); const tab = await page.evaluate(() => UI.tab);
-      check('3D 항구: 화물 터미널 → 계약 탭', tab === 'cons', tab);
+      check('3D 항구: 건물 표지 (거래소·닻 다방·조선·정비소)', labels.some(l => l.startsWith('거래소')) && labels.some(l => l.includes('다방')), labels.join(', '));
+      await page.click('.p3lab >> nth=0'); const b = await page.evaluate(() => UI.bld);
+      check('3D 항구: 거래소를 누르면 거래소가 열림', b === 'exchange', b);
     } else console.log('   -   3D 라이브러리를 불러오지 못해 3D 항구 점검은 건너뜀 (THREE_JS 지정 또는 CDN 접속 필요)');
     const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check('휴대폰 400px에서 가로 스크롤 없음', wide <= 0, `넘침 ${wide}px`);
+    await page.screenshot({ path: path.join(__dirname, 'out-phone.png') }).catch(() => {});
     check('페이지 오류 없음 (밝은 화면)', errors.length === 0, errors.join(' | '));
     await page.close();
   }
   { // 3D library unavailable → 2D chart instead
     const { page, errors } = await open(browser, { blockThree: true });
     await page.click('[data-act=start]'); await page.waitForTimeout(300);
-    const st = await page.evaluate(() => ({ view: UI.view, map: getComputedStyle(document.querySelector('#map')).visibility, p3: document.querySelector('#vP3').hidden }));
-    check('3D 라이브러리를 못 불러오면 2D 지도로 대체', st.view !== 'port3d' && st.map === 'visible' && st.p3, JSON.stringify(st));
+    const st = await page.evaluate(() => ({ view: UI.view, map: getComputedStyle(document.querySelector('#map')).visibility }));
+    check('3D 라이브러리를 못 불러오면 2D 지도로 대체', st.view !== 'port3d' && st.map === 'visible', JSON.stringify(st));
+    await page.click('.goal:visible .gbtn');
+    check('3D 없이도 거래소가 열림', await page.evaluate(() => !!document.querySelector('.board')));
     check('페이지 오류 없음 (3D 없음)', errors.length === 0, errors.join(' | '));
     await page.close();
   }
   { // dark theme + desktop width
     const { page, errors } = await open(browser, { width: 1280, height: 820, dark: true });
     await page.click('[data-act=start]'); await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(__dirname, 'out-desktop.png') }).catch(() => {});
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     check('다크 모드 배경이 어두움', /rgb\((\d+), (\d+), (\d+)\)/.test(bg) && bg.match(/\d+/g).slice(0, 3).every(v => Number(v) < 60), bg);
     check('페이지 오류 없음 (다크·데스크톱)', errors.length === 0, errors.join(' | '));
